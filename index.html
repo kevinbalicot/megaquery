@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="dist/megaquery.js"></script>
+    </head>
+    <body>
+        <input id="input" type="text"></input>
+        <button id="button">Add</button>
+        <ul id="list">
+        </ul>
+        <script>
+            var list = document.getElementById('list');
+            var input = document.getElementById('input');
+            var button = document.getElementById('button');
+            var requester = new Requester();
+
+            var deleteTask = function (id) {
+                requester.remove('demo-megaquery', id);
+            };
+
+            requester.connect('http://localhost', 8081);
+            requester.on('message', function(query) {
+                list.innerHTML = null;
+                query.result.forEach(message => {
+                    var li = document.createElement('li');
+                    li.innerHTML = message.content + ' by ' + message.username + '<button onClick="deleteTask(\''+ message._id +'\')">Delete</button>';
+
+                    list.appendChild(li);
+                });
+            });
+
+            button.addEventListener('click', function() {
+                requester.insert('demo-megaquery', { content: input.value, username: 'Kevin', created_at: new Date() });
+                input.value = null;
+            });
+
+            requester.find('demo-megaquery', {}, 20, { created_at: -1 });
+        </script>
+    </body>
+</html>
