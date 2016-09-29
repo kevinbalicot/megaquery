@@ -81,10 +81,10 @@ class Requester extends EventEmitter {
         return id;
     }
 
-    findOne (collection, params = {}, limit = 1000, sort = null, skip = 0) {
+    findOne (collection, params = {}) {
         const type = 'findOne';
-        const id = `${collection}.${type}.${JSON.stringify(params)}.${skip}.${limit}.${JSON.stringify(sort)}`;
-        const query = { id, collection, params, type, limit, sort, skip };
+        const id = `${collection}.${type}.${JSON.stringify(params)}`;
+        const query = { id, collection, params, type };
 
         this.merge(query);
 

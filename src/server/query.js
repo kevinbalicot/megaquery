@@ -29,7 +29,13 @@ class Query {
 
     findOne (db) {
         return new Promise((resolve, reject) => {
-            db.collection(this.collection).findOne(this.params).skip(this.skip).limit(this.limit).sort(this.sort).toArray((error, results) => {
+            let params;
+            if (!!this.params.id || !!this.params._id ) {
+                params = { _id: new MongoObjectID(this.params._id || this.params.id) };
+            } else {
+                params = this.params;
+            }
+            db.collection(this.collection).findOne(this.params).toArray((error, results) => {
                 if (!!error) {
                     return reject(error);
                 }
