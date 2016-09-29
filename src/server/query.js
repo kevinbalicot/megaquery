@@ -35,7 +35,7 @@ class Query {
             } else {
                 params = this.params;
             }
-            db.collection(this.collection).findOne(this.params).toArray((error, results) => {
+            db.collection(this.collection).findOne(params, (error, results) => {
                 if (!!error) {
                     return reject(error);
                 }
