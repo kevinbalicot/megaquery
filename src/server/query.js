@@ -22,6 +22,7 @@ class Query {
                 if (!!error) {
                     return reject(error);
                 }
+
                 return resolve(results);
             });
         });
@@ -35,10 +36,12 @@ class Query {
             } else {
                 params = this.params;
             }
+
             db.collection(this.collection).findOne(params, (error, results) => {
                 if (!!error) {
                     return reject(error);
                 }
+
                 return resolve(results);
             });
         });
@@ -50,6 +53,7 @@ class Query {
                 if (!!error) {
                     return reject(error);
                 }
+
                 return resolve(results);
             });
         });
@@ -62,6 +66,7 @@ class Query {
                 if (!!error) {
                     return reject(error);
                 }
+
                 return resolve(results);
             });
         });
@@ -80,6 +85,7 @@ class Query {
                 if (!!error) {
                     return reject(error);
                 }
+
                 return resolve(results);
             });
         });

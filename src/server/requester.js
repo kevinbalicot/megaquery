@@ -40,7 +40,7 @@ class Requester extends EventEmitter {
                 if (query.type == 'find' || query.type == 'findOne') {
                     this.merge(query, client);
                 } else if (query.type == 'update' || query.type == 'insert' || query.type == 'save' || query.type == 'remove') {
-                    this.run(query).then(() => this.broadcast(query.collection));
+                    this.run(query, [client.id]).then(() => this.broadcast(query.collection));
                 }
             });
 

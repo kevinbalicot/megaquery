@@ -29,6 +29,12 @@ class Requester extends EventEmitter {
                 query = JSON.parse(query);
                 this.refresh(query);
                 this.trigger('message', query);
+                this.trigger(query.id, query);
+
+                if (query.type === 'find' || query.type === 'findOne') {
+                    this.trigger(`message-${query.collection}`, query);
+                    this.trigger(`${query.collection}.${query.type}.${query.params}`, query);
+                }
             });
 
             // Lost connection with server, try to reconnect
@@ -42,7 +48,10 @@ class Requester extends EventEmitter {
 
     refresh (query) {
         let storedQuery = this.queries.find(el => el.id === query.id);
-        storedQuery.result = query.result || [];
+
+        if (!!storedQuery) {
+            storedQuery.result = query.result || [];
+        }
     }
 
     get (id) {
@@ -71,54 +80,89 @@ class Requester extends EventEmitter {
         }));
     }
 
-    find (collection, params = {}, limit = 1000, sort = null, skip = 0) {
+    find (collection, params = {}, limit = 1000, sort = null, skip = 0, callback = null) {
         const type = 'find';
         const id = `${collection}.${type}.${JSON.stringify(params)}.${skip}.${limit}.${JSON.stringify(sort)}`;
         const query = { id, collection, params, type, limit, sort, skip };
 
         this.merge(query);
 
+        if (!!callback) {
+            this.once(id, callback);
+        }
+
         return id;
     }
 
-    findOne (collection, params = {}) {
+    findOne (collection, params = {}, callback = null) {
         const type = 'findOne';
         const id = `${collection}.${type}.${JSON.stringify(params)}`;
         const query = { id, collection, params, type };
 
         this.merge(query);
 
+        if (!!callback) {
+            this.once(id, callback);
+        }
+
         return id;
     }
 
-    insert (collection, params, options = null) {
+    insert (collection, params, options = null, callback) {
         const type = 'insert';
-        const query = { collection, params, options, type };
+        const id = `${collection}.${type}.${JSON.stringify(params)}.${JSON.stringify(options)}`;
+        const query = { id, collection, params, options, type };
+
+        if (!!callback) {
+            this.once(id, callback);
+        }
 
         this.merge(query);
     }
 
-    remove (collection, id, options = null) {
+    remove (collection, selector, options = null, callback) {
         const type = 'remove';
-        const query = { collection, params: { id }, options, type };
+        const id = `${collection}.${type}.${JSON.stringify(selector)}.${JSON.stringify(options)}`;
+        const query = { id, collection, params: { selector }, options, type };
+
+        if (!!callback) {
+            this.once(id, callback);
+        }
 
         this.merge(query);
     }
 
-    update (collection, selector, params, options = null) {
+    update (collection, selector, params, options = null, callback) {
         const type = 'update';
-        const query = { collection, selector, params, options, type };
+        const id = `${collection}.${type}.${JSON.stringify(selector)}.${JSON.stringify(params)}.${JSON.stringify(options)}`;
+        const query = { id, collection, selector, params, options, type };
+
+        if (!!callback) {
+            this.once(id, callback);
+        }
 
         this.merge(query);
     }
 
-    request (collection, params = {}, type = 'find', limit = 1000, sort = null, skip = 0) {
+    request (collection, params = {}, type = 'find', limit = 1000, sort = null, skip = 0, callback) {
         const id = `${collection}.${type}.${JSON.stringify(params)}.${skip}.${limit}.${JSON.stringify(sort)}`;
         const query = { id, collection, params, type, limit, sort, skip };
 
         this.merge(query);
 
+        if (!!callback) {
+            this.once(id, callback);
+        }
+
         return id;
+    }
+
+    subscribe(collection, callback) {
+        this.on(`message-${collection}`, callback);
+    }
+
+    unsubscribe(collection) {
+        this.off(`message-${collection}`);
     }
 }
 

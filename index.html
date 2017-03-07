@@ -19,7 +19,9 @@
             };
 
             requester.connect('http://localhost', 8081);
-            requester.on('message', function(query) {
+            requester.on('message', query => console.log(query));
+            requester.subscribe('demo-megaquery', function(query) {
+                console.log(query);
                 list.innerHTML = null;
                 query.result.forEach(message => {
                     var li = document.createElement('li');
@@ -34,7 +36,9 @@
                 input.value = null;
             });
 
-            requester.find('demo-megaquery', {}, 20, { created_at: -1 });
+            requester.find('demo-megaquery', {}, 20, { created_at: -1 }, 0, function() {
+                console.log('coucou tu veux voir ma bite ?');
+            });
         </script>
     </body>
 </html>
