@@ -37,9 +37,13 @@ class Requester extends EventEmitter {
                 query = JSON.parse(query);
                 query.params = query.params || '{}';
 
-                if (query.type == 'find' || query.type == 'findOne') {
+                console.log('==== receive message ==============================');
+                console.log(query);
+
+                // If query if type of find, store query into cache else, run it and broadcast
+                if (query.type === 'find' || query.type === 'findOne' || query.type === 'aggregate') {
                     this.merge(query, client);
-                } else if (query.type == 'update' || query.type == 'insert' || query.type == 'save' || query.type == 'remove') {
+                } else if (query.type === 'update' || query.type === 'insert' || query.type === 'save' || query.type === 'remove') {
                     this.run(query, [client.id]).then(() => this.broadcast(query.collection));
                 }
             });
@@ -54,20 +58,28 @@ class Requester extends EventEmitter {
     }
 
     merge (query, client) {
-        // If there are already this query
         let storedQuery = this.storedQueries.find(el => el.query.id == query.id);
 
+        // If query is already stored, add client
         if (!!storedQuery) {
+            console.log('==== query cached ====');
+            console.log(storedQuery);
+
             let storedClient = storedQuery.clients.find(c => c == client.id);
             if (!storedClient) {
                 storedQuery.clients.push(client.id);
             }
             client.send(JSON.stringify(storedQuery.query));
         } else {
+            console.log('==== no query cached ====');
+            // Else, add into cache with client and run it
             this.storedQueries.push({ query, clients: [client.id] });
             storedQuery = this.storedQueries.find(el => el.query.id == query.id);
             this.run(storedQuery.query, storedQuery.clients);
         }
+
+        console.log('==== actual cache ====');
+        this.storedQueries.forEach(el => console.log(el));
     }
 
     /**
@@ -82,15 +94,27 @@ class Requester extends EventEmitter {
 
         let q = Query.unserialize(query);
 
+        console.log('==== run ====');
+        console.log(query);
+
         return q.run(this.db).then(data => {
             query.result = data;
+            console.log('==== result ====');
+            console.log(data);
+
+            console.log('==== updated cache ====');
+            this.storedQueries.forEach(el => console.log(el));
+
             clients.forEach(client => this.server.clients[client].send(JSON.stringify(query)));
         });
     }
 
     broadcast (collection) {
-        let queries = [].concat(this.storedQueries.find(el => el.query.collection == collection));
-        queries.forEach(el => this.run(el.query, el.clients));
+        let queries = this.storedQueries.filter(el => el.query.collection == collection);
+
+        if (!!queries) {
+            queries.forEach(el => this.run(el.query, el.clients));
+        }
     }
 
     /**
@@ -98,7 +122,7 @@ class Requester extends EventEmitter {
      */
     remove (client) {
         this.storedQueries = this.storedQueries.map(storedQuery => {
-            storedQuery.clients = [].concat(storedQuery.clients.find(c => c != client.id) || []);
+            storedQuery.clients = storedQuery.clients.filter(c => c != client.id) || []
             return storedQuery;
         });
     }

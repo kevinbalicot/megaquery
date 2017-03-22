@@ -61,13 +61,14 @@ class Query {
 
     remove (db) {
         return new Promise((resolve, reject) => {
-            let params = { _id: new MongoObjectID(this.params.id) };
-            db.collection(this.collection).remove(params, this.options, (error, results) => {
+            let params = { _id: new MongoObjectID(this.selector._id || this.selector.id) };
+
+            db.collection(this.collection).remove(params, this.options, (error, response) => {
                 if (!!error) {
                     return reject(error);
                 }
 
-                return resolve(results);
+                return resolve(response.result);
             });
         });
     }
@@ -75,33 +76,58 @@ class Query {
     update (db) {
         return new Promise((resolve, reject) => {
             let selector;
-            if (!!this.selector.id || !!this.selector._id ) {
+            if (!!this.selector._id || !!this.selector.id) {
                 selector = { _id: new MongoObjectID(this.selector._id || this.selector.id) };
             } else {
                 selector = this.selector;
             }
 
-            db.collection(this.collection).update(selector, this.params, this.options, (error, results) => {
+            db.collection(this.collection).update(selector, this.params, this.options, (error, response) => {
                 if (!!error) {
                     return reject(error);
                 }
 
-                return resolve(results);
+                return resolve(response.result);
             });
+        });
+    }
+
+    aggregate(db) {
+        return new Promise((resolve, reject) => {
+            // because mongodb driver have bug at lib/collection#2582
+            if (null === this.options) {
+                db.collection(this.collection).aggregate(this.params, (error, results) => {
+                    if (!!error) {
+                        return reject(error);
+                    }
+
+                    return resolve(results);
+                });
+            } else {
+                db.collection(this.collection).aggregate(this.params, this.options, (error, results) => {
+                    if (!!error) {
+                        return reject(error);
+                    }
+
+                    return resolve(results);
+                });
+            }
         });
     }
 
     run (db) {
         if (this.type === 'find') {
-            return this.find(db);
+            return this.find(db).catch(e => console.log(e));
         } else if (this.type === 'findOne') {
-            return this.findOne(db);
+            return this.findOne(db).catch(e => console.log(e));
         } else if (this.type === 'insert') {
-            return this.insert(db);
+            return this.insert(db).catch(e => console.log(e));
         } else if (this.type === 'remove') {
-            return this.remove(db);
+            return this.remove(db).catch(e => console.log(e));
         } else if (this.type === 'update') {
             return this.update(db).catch(e => console.log(e));
+        } else if (this.type === 'aggregate') {
+            return this.aggregate(db).catch(e => console.log(e));
         }
     }
 

@@ -15,7 +15,7 @@
             var requester = new Requester();
 
             var deleteTask = function (id) {
-                requester.remove('demo-megaquery', id);
+                requester.remove('demo-megaquery', { id: id });
             };
 
             requester.connect('http://localhost', 8081);
