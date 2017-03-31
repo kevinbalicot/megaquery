@@ -37,11 +37,8 @@ class Requester extends EventEmitter {
                 query = JSON.parse(query);
                 query.params = query.params || '{}';
 
-                console.log('==== receive message ==============================');
-                console.log(query);
-
                 // If query if type of find, store query into cache else, run it and broadcast
-                if (query.type === 'find' || query.type === 'findOne' || query.type === 'aggregate') {
+                if (query.type === 'find' || query.type === 'findOne' || query.type === 'aggregate' || query.type === 'distinct') {
                     this.merge(query, client);
                 } else if (query.type === 'update' || query.type === 'insert' || query.type === 'save' || query.type === 'remove') {
                     this.run(query, [client.id]).then(() => this.broadcast(query.collection));
@@ -62,24 +59,17 @@ class Requester extends EventEmitter {
 
         // If query is already stored, add client
         if (!!storedQuery) {
-            console.log('==== query cached ====');
-            console.log(storedQuery);
-
             let storedClient = storedQuery.clients.find(c => c == client.id);
             if (!storedClient) {
                 storedQuery.clients.push(client.id);
             }
             client.send(JSON.stringify(storedQuery.query));
         } else {
-            console.log('==== no query cached ====');
             // Else, add into cache with client and run it
             this.storedQueries.push({ query, clients: [client.id] });
             storedQuery = this.storedQueries.find(el => el.query.id == query.id);
             this.run(storedQuery.query, storedQuery.clients);
         }
-
-        console.log('==== actual cache ====');
-        this.storedQueries.forEach(el => console.log(el));
     }
 
     /**
@@ -94,17 +84,8 @@ class Requester extends EventEmitter {
 
         let q = Query.unserialize(query);
 
-        console.log('==== run ====');
-        console.log(query);
-
         return q.run(this.db).then(data => {
             query.result = data;
-            console.log('==== result ====');
-            console.log(data);
-
-            console.log('==== updated cache ====');
-            this.storedQueries.forEach(el => console.log(el));
-
             clients.forEach(client => this.server.clients[client].send(JSON.stringify(query)));
         });
     }

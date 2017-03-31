@@ -38,7 +38,7 @@ class Requester extends EventEmitter {
                 this.trigger('message', query);
                 this.trigger(query.id, query);
 
-                if (query.type === 'find' || query.type === 'findOne' || query.type === 'aggregate') {
+                if (query.type === 'find' || query.type === 'findOne' || query.type === 'aggregate' || query.type === 'distinct') {
                     this.trigger(`message-${query.collection}`, query);
                     this.trigger(`${query.collection}.${query.type}.${query.params}`, query);
                 }
@@ -77,7 +77,7 @@ class Requester extends EventEmitter {
     }
 
     merge (query) {
-        if (query.type === 'find' || query.type === 'findOne' || query.type === 'aggregate') {
+        if (query.type === 'find' || query.type === 'findOne' || query.type === 'aggregate' || query.type === 'distinct') {
             let storedQuery = this.queries.find(el => el.id === query.id);
 
             if (!storedQuery) {
@@ -90,6 +90,7 @@ class Requester extends EventEmitter {
             collection: query.collection,
             params: JSON.stringify(query.params),
             selector: JSON.stringify(query.selector),
+            field: query.field,
             type: query.type,
             limit: query.limit,
             sort: JSON.stringify(query.sort),
@@ -166,6 +167,20 @@ class Requester extends EventEmitter {
         const type = 'aggregate';
         const id = `${collection}.${type}.${JSON.stringify(params)}.${JSON.stringify(options)}`;
         const query = { id, collection, params, options, type };
+
+        this.merge(query);
+
+        if (!!callback) {
+            this.once(id, callback);
+        }
+
+        return id;
+    }
+
+    distinct(collection, field, params, options = null, callback = null) {
+        const type = 'distinct';
+        const id = `${collection}.${type}.${field}.${JSON.stringify(params)}.${JSON.stringify(options)}`;
+        const query = { id, collection, field, params, options, type };
 
         this.merge(query);
 

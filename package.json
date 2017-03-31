@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "gulp build",
-    "demo": "http-server ."
+    "demo": "http-server .",
+    "start": "node server.js"
   },
   "author": "Kevin Balicot <kevinbalicot@gmail.com>",
   "license": "MIT",
@@ -22,6 +23,10 @@
     "engine.io": "^1.6.11",
     "engine.io-client": "^1.6.11",
     "mongodb": "^2.2.9"
+  },
+  "publish": {
+    "ip": "92.222.88.16",
+    "customPort": "9003"
   },
   "browserify": {
     "transform": [

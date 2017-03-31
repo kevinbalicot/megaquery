@@ -4,7 +4,7 @@ const MongoObjectID = require("mongodb").ObjectID;
 
 class Query {
 
-    constructor (id, collection, params, type, limit = 1000, skip = 0, sort = null, options = null, selector = null) {
+    constructor (id, collection, params, type, limit = 1000, skip = 0, sort = null, options = null, selector = null, field = null) {
         this.id = id;
         this.collection = collection;
         this.params = params;
@@ -14,6 +14,7 @@ class Query {
         this.options = options;
         this.sort = sort;
         this.selector = selector;
+        this.field = field;
     }
 
     find (db) {
@@ -115,6 +116,18 @@ class Query {
         });
     }
 
+    distinct(db) {
+        return new Promise((resolve, reject) => {
+            db.collection(this.collection).distinct(this.field, this.params, this.options, (error, results) => {
+                if (!!error) {
+                    return reject(error);
+                }
+
+                return resolve(results);
+            });
+        });
+    }
+
     run (db) {
         if (this.type === 'find') {
             return this.find(db).catch(e => console.log(e));
@@ -128,6 +141,8 @@ class Query {
             return this.update(db).catch(e => console.log(e));
         } else if (this.type === 'aggregate') {
             return this.aggregate(db).catch(e => console.log(e));
+        } else if (this.type === 'distinct') {
+            return this.distinct(db).catch(e => console.log(e));
         }
     }
 
@@ -140,8 +155,9 @@ class Query {
             data.limit,
             data.skip,
             !!data.sort ? JSON.parse(data.sort) : null,
-            !! data.options ? JSON.parse(data.options) : null,
-            !! data.selector ? JSON.parse(data.selector) : null
+            !!data.options ? JSON.parse(data.options) : null,
+            !!data.selector ? JSON.parse(data.selector) : null,
+            data.field
         );
     }
 }
