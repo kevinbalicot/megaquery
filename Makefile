@@ -3,7 +3,8 @@ BIN_DIR = ./node_modules/.bin
 BIN_FILE = $(DIST_DIR)/megaqueries-client.js
 DEMO_DIR = ./demo
 
-build: $(BIN_FILE)
+build: $(DIST_DIR) node_modules
+	$(BIN_DIR)/browserify src/client/index.js -o $(BIN_FILE) -t [ babelify ]
 
 clean:
 	rm -rf ./node_modules $(DIST_DIR)

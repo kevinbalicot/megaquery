@@ -4247,9 +4247,7 @@ var Requester = require('./requester');
 
 window.Requester = Requester;
 
-module.exports = {
-    Requester: Requester
-};
+module.exports = { Requester: Requester };
 
 },{"./requester":33}],33:[function(require,module,exports){
 'use strict';
@@ -4299,24 +4297,37 @@ var Requester = function (_EventEmitter) {
         _this.connecting = true;
         _this.connected = false;
         _this.queries = [];
+        _this.options = {};
         return _this;
     }
 
+    /**
+     * Connect to server
+     * @param {string} uri
+     * @param {Object} [options={}]
+     */
+
     _createClass(Requester, [{
         key: 'connect',
-        value: function connect(url) {
+        value: function connect(uri) {
             var _this2 = this;
 
             var port = arguments.length <= 1 || arguments[1] === undefined ? 8080 : arguments[1];
+            var options = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
 
             if (!!this.connected) {
                 return this;
             }
 
-            clearInterval(this.connecting);
-            this.listenNewConnection(url, port);
+            this.options = options;
+            if (!this.options.auth) {
+                this.options.auth = function () {};
+            }
 
-            this.connection = new engine.Socket(url + ':' + port);
+            clearInterval(this.connecting);
+            this.listenNewConnection(uri, port);
+
+            this.connection = new engine.Socket(uri + ':' + port);
             this.connection.on('open', function () {
                 _this2.connected = true;
                 _this2.trigger('open');
@@ -4326,9 +4337,18 @@ var Requester = function (_EventEmitter) {
                     _this2.connecting = false;
                 }
 
-                // Receive message from server
+                /**
+                 * Receive message from server
+                 * @param {Object} query
+                 */
                 _this2.connection.on('message', function (query) {
                     query = JSON.parse(query);
+
+                    if (!!query.error) {
+                        _this2.trigger(query.error, query.data);
+                        return;
+                    }
+
                     _this2.refresh(query);
                     _this2.trigger('message', query);
                     _this2.trigger(query.id, query);
@@ -4343,26 +4363,32 @@ var Requester = function (_EventEmitter) {
                 _this2.connection.on('close', function () {
                     _this2.connected = false;
                     _this2.trigger('close');
-                    _this2.listenNewConnection(url, port);
+                    _this2.listenNewConnection(uri, port);
                 });
             });
         }
 
         /**
          * Try to reconnecte
-         * @param url
+         * @param {string} uri
          * @param port
          */
 
     }, {
         key: 'listenNewConnection',
-        value: function listenNewConnection(url, port) {
+        value: function listenNewConnection(uri, port) {
             var _this3 = this;
 
             this.connecting = setInterval(function () {
-                _this3.connect(url, port);
+                _this3.connect(uri, port);
             }, 10000);
         }
+
+        /**
+         * Refresh stored query
+         * @param {Object} query
+         */
+
     }, {
         key: 'refresh',
         value: function refresh(query) {
@@ -4374,6 +4400,14 @@ var Requester = function (_EventEmitter) {
                 storedQuery.result = query.result || [];
             }
         }
+
+        /**
+         * Get query by id
+         * @param {string} id
+         *
+         * @return {Object}
+         */
+
     }, {
         key: 'get',
         value: function get(id) {
@@ -4381,6 +4415,12 @@ var Requester = function (_EventEmitter) {
                 return el.id === id;
             });
         }
+
+        /**
+         * Merge query into stored queries and send to server
+         * @param {Object} query
+         */
+
     }, {
         key: 'merge',
         value: function merge(query) {
@@ -4394,19 +4434,35 @@ var Requester = function (_EventEmitter) {
                 }
             }
 
-            this.connection.send(JSON.stringify({
-                id: query.id,
-                collection: query.collection,
-                params: JSON.stringify(query.params),
-                selector: JSON.stringify(query.selector),
-                field: query.field,
-                type: query.type,
-                limit: query.limit,
-                sort: JSON.stringify(query.sort),
-                skip: query.skip,
-                options: JSON.stringify(query.options)
-            }));
+            var data = {};
+            this.options.auth(data);
+
+            data.id = query.id;
+            data.collection = query.collection;
+            data.field = query.field;
+            data.type = query.type;
+            data.limit = query.limit;
+            data.skip = query.skip;
+            data.params = JSON.stringify(query.params);
+            data.selector = JSON.stringify(query.selector);
+            data.sort = JSON.stringify(query.sort);
+            data.options = JSON.stringify(query.options);
+
+            this.connection.send(JSON.stringify(data));
         }
+
+        /**
+         * Create find query
+         * @param {string} collection - Mongo collection
+         * @param {Object} [params={}] - Mongo query params
+         * @param {number} [limit=100]
+         * @param {Object} [sort=null]
+         * @param {number} [skip=0]
+         * @param {Callable} [callback=null]
+         *
+         * @return {string} return query id
+         */
+
     }, {
         key: 'find',
         value: function find(collection) {
@@ -4428,6 +4484,16 @@ var Requester = function (_EventEmitter) {
 
             return id;
         }
+
+        /**
+         * Create find one query
+         * @param {string} collection - Mongo collection
+         * @param {Object} [params={}] - Mongo query params
+         * @param {Callable} [callback=null]
+         *
+         * @return {string} return query id
+         */
+
     }, {
         key: 'findOne',
         value: function findOne(collection) {
@@ -4446,6 +4512,17 @@ var Requester = function (_EventEmitter) {
 
             return id;
         }
+
+        /**
+         * Create insert query
+         * @param {string} collection - Mongo collection
+         * @param {Object} params - Mongo query params
+         * @param {Object} [options=null]
+         * @param {Callable} [callback=null]
+         *
+         * @return {string} return query id
+         */
+
     }, {
         key: 'insert',
         value: function insert(collection, params) {
@@ -4462,6 +4539,17 @@ var Requester = function (_EventEmitter) {
 
             this.merge(query);
         }
+
+        /**
+         * Create remove query
+         * @param {string} collection - Mongo collection
+         * @param {Object} selector - Mongo query selector
+         * @param {Object} [options=null]
+         * @param {Callable} [callback=null]
+         *
+         * @return {string} return query id
+         */
+
     }, {
         key: 'remove',
         value: function remove(collection, selector) {
@@ -4478,6 +4566,18 @@ var Requester = function (_EventEmitter) {
 
             this.merge(query);
         }
+
+        /**
+         * Create update query
+         * @param {string} collection - Mongo collection
+         * @param {Object} selector - Mongo query selector
+         * @param {Object} params - Mongo query params
+         * @param {Object} [options=null]
+         * @param {Callable} [callback=null]
+         *
+         * @return {string} return query id
+         */
+
     }, {
         key: 'update',
         value: function update(collection, selector, params) {
@@ -4494,6 +4594,17 @@ var Requester = function (_EventEmitter) {
 
             this.merge(query);
         }
+
+        /**
+         * Create aggregate query
+         * @param {string} collection - Mongo collection
+         * @param {Object} params - Mongo query params
+         * @param {Object} [options=null]
+         * @param {Callable} [callback=null]
+         *
+         * @return {string} return query id
+         */
+
     }, {
         key: 'aggregate',
         value: function aggregate(collection, params) {
@@ -4512,6 +4623,18 @@ var Requester = function (_EventEmitter) {
 
             return id;
         }
+
+        /**
+         * Create distinct query
+         * @param {string} collection - Mongo collection
+         * @param {string} field - Mongo query field
+         * @param {Object} params - Mongo query params
+         * @param {Object} [options=null]
+         * @param {Callable} [callback=null]
+         *
+         * @return {string} return query id
+         */
+
     }, {
         key: 'distinct',
         value: function distinct(collection, field, params) {
@@ -4530,6 +4653,20 @@ var Requester = function (_EventEmitter) {
 
             return id;
         }
+
+        /**
+         * Create custom request query
+         * @param {string} collection - Mongo collection
+         * @param {Object} [params={}] - Mongo query params
+         * @param {string} [type='find'] - Query type
+         * @param {number} [limit=100]
+         * @param {Object} [sort=null]
+         * @param {number} [skip=0]
+         * @param {Callable} [callback=null]
+         *
+         * @return {string} return query id
+         */
+
     }, {
         key: 'request',
         value: function request(collection) {
@@ -4551,11 +4688,25 @@ var Requester = function (_EventEmitter) {
 
             return id;
         }
+
+        /**
+         * Subscribe callable on collection event
+         * @param {string} collection
+         * @param {Callable} callback
+         */
+
     }, {
         key: 'subscribe',
         value: function subscribe(collection, callback) {
             this.on('message-' + collection, callback);
         }
+
+        /**
+         * Unsubscribe callable from collection event
+         * @param {string} collection
+         * @param {Callable} callback
+         */
+
     }, {
         key: 'unsubscribe',
         value: function unsubscribe(collection) {
@@ -4569,7 +4720,7 @@ var Requester = function (_EventEmitter) {
 module.exports = Requester;
 
 },{"./../common/event-emitter":34,"engine.io-client":10}],34:[function(require,module,exports){
-'use strict';
+"use strict";
 
 var _createClass = function () {
     function defineProperties(target, props) {
@@ -4596,59 +4747,55 @@ var EventEmitter = function () {
 
     /**
      * Add event listener
-     * @param event
-     * @param callback
-     * @param context
+     * @param {string} event
+     * @param {Callable} callback
+     * @param {*} context
+     *
+     * @return {EventEmitter}
      */
 
     _createClass(EventEmitter, [{
-        key: 'on',
+        key: "on",
         value: function on(event, callback, context) {
-
             if (!this.listeners[event]) {
                 this.listeners[event] = [];
             }
 
-            this.listeners[event].push({
-                once: false,
-                callback: callback,
-                context: context
-            });
+            this.listeners[event].push({ once: false, callback: callback, context: context });
 
             return this;
         }
 
         /**
          * Add event listener will call one time
-         * @param event
-         * @param callback
-         * @param context
+         * @param {string} event
+         * @param {Callable} callback
+         * @param {*} context
+         *
+         * @return {EventEmitter}
          */
 
     }, {
-        key: 'once',
+        key: "once",
         value: function once(event, callback, context) {
-
             if (!this.listeners[event]) {
                 this.listeners[event] = [];
             }
 
-            this.listeners[event].push({
-                once: true,
-                callback: callback,
-                context: context
-            });
+            this.listeners[event].push({ once: true, callback: callback, context: context });
 
             return this;
         }
 
         /**
          * Delete event listeners
-         * @param event
+         * @param {string} event
+         *
+         * @return {EventEmitter}
          */
 
     }, {
-        key: 'off',
+        key: "off",
         value: function off(event) {
             if (!!this.listeners[event]) {
                 delete this.listeners[event];
@@ -4659,12 +4806,14 @@ var EventEmitter = function () {
 
         /**
          * Call every listener for event
-         * @param event
-         * @param data
+         * @param {string} event
+         * @param {Object} [data={}]
+         *
+         * @return {EventEmitter}
          */
 
     }, {
-        key: 'trigger',
+        key: "trigger",
         value: function trigger(event) {
             var _this = this;
 

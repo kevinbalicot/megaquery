@@ -1,10 +1,19 @@
-'use strict';
-
 const MongoObjectID = require("mongodb").ObjectID;
 
 class Query {
 
-    constructor (id, collection, params, type, limit = 1000, skip = 0, sort = null, options = null, selector = null, field = null) {
+    /**
+     * @param {string} id
+     * @param {string} collection
+     * @param {Object} params
+     * @param {string} type
+     * @param {number} [limit=100]
+     * @param {number} [skip=0]
+     * @param {Object} [options=null]
+     * @param {Object} [selector=null]
+     * @param {string} [field=null]
+     */
+    constructor(id, collection, params, type, limit = 1000, skip = 0, sort = null, options = null, selector = null, field = null) {
         this.id = id;
         this.collection = collection;
         this.params = params;
@@ -17,7 +26,13 @@ class Query {
         this.field = field;
     }
 
-    find (db) {
+    /**
+     * Play find query
+     * @param {Object} db
+     *
+     * @return {Promise}
+     */
+    find(db) {
         return new Promise((resolve, reject) => {
             db.collection(this.collection).find(this.params).skip(this.skip).limit(this.limit).sort(this.sort).toArray((error, results) => {
                 if (!!error) {
@@ -29,13 +44,17 @@ class Query {
         });
     }
 
-    findOne (db) {
+    /**
+     * Play find one query
+     * @param {Object} db
+     *
+     * @return {Promise}
+     */
+    findOne(db) {
         return new Promise((resolve, reject) => {
-            let params;
+            let params = this.params;
             if (!!this.params.id || !!this.params._id ) {
                 params = { _id: new MongoObjectID(this.params._id || this.params.id) };
-            } else {
-                params = this.params;
             }
 
             db.collection(this.collection).findOne(params, (error, results) => {
@@ -48,7 +67,13 @@ class Query {
         });
     }
 
-    insert (db) {
+    /**
+     * Play insert query
+     * @param {Object} db
+     *
+     * @return {Promise}
+     */
+    insert(db) {
         return new Promise((resolve, reject) => {
             db.collection(this.collection).insert(this.params, this.options, (error, results) => {
                 if (!!error) {
@@ -60,9 +85,15 @@ class Query {
         });
     }
 
-    remove (db) {
+    /**
+     * Play remove query
+     * @param {Object} db
+     *
+     * @return {Promise}
+     */
+    remove(db) {
         return new Promise((resolve, reject) => {
-            let params = { _id: new MongoObjectID(this.selector._id || this.selector.id) };
+            const params = { _id: new MongoObjectID(this.selector._id || this.selector.id) };
 
             db.collection(this.collection).remove(params, this.options, (error, response) => {
                 if (!!error) {
@@ -74,13 +105,17 @@ class Query {
         });
     }
 
-    update (db) {
+    /**
+     * Play update query
+     * @param {Object} db
+     *
+     * @return {Promise}
+     */
+    update(db) {
         return new Promise((resolve, reject) => {
-            let selector;
+            let selector = this.selector;
             if (!!this.selector._id || !!this.selector.id) {
                 selector = { _id: new MongoObjectID(this.selector._id || this.selector.id) };
-            } else {
-                selector = this.selector;
             }
 
             db.collection(this.collection).update(selector, this.params, this.options, (error, response) => {
@@ -93,6 +128,12 @@ class Query {
         });
     }
 
+    /**
+     * Play aggregate query
+     * @param {Object} db
+     *
+     * @return {Promise}
+     */
     aggregate(db) {
         return new Promise((resolve, reject) => {
             // because mongodb driver have bug at lib/collection#2582
@@ -116,6 +157,12 @@ class Query {
         });
     }
 
+    /**
+     * Play distinct query
+     * @param {Object} db
+     *
+     * @return {Promise}
+     */
     distinct(db) {
         return new Promise((resolve, reject) => {
             db.collection(this.collection).distinct(this.field, this.params, this.options, (error, results) => {
@@ -128,7 +175,13 @@ class Query {
         });
     }
 
-    run (db) {
+    /**
+     * Run query
+     * @param {Object} db
+     *
+     * @return {Promise}
+     */
+    run(db) {
         if (this.type === 'find') {
             return this.find(db).catch(e => console.log(e));
         } else if (this.type === 'findOne') {
@@ -146,7 +199,13 @@ class Query {
         }
     }
 
-    static unserialize (data) {
+    /**
+     * Unserialize query
+     * @param {Object} data
+     *
+     * @return {Query}
+     */
+    static unserialize(data) {
         return new Query(
             data.id || null,
             data.collection,
