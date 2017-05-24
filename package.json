@@ -1,6 +1,6 @@
 {
   "name": "megaqueries",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Megaqueries is a query manager with realtime exchanges between client and mongodb database",
   "main": "src/server/index.js",
   "scripts": {
