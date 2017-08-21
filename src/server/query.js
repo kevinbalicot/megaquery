@@ -4,6 +4,7 @@ class Query {
 
     /**
      * @param {string} id
+     * @param {string} dbname
      * @param {string} collection
      * @param {Object} params
      * @param {string} type
@@ -13,8 +14,9 @@ class Query {
      * @param {Object} [selector=null]
      * @param {string} [field=null]
      */
-    constructor(id, collection, params, type, limit = 1000, skip = 0, sort = null, options = null, selector = null, field = null) {
+    constructor(id, dbname, collection, params, type, limit = 1000, skip = 0, sort = null, options = null, selector = null, field = null) {
         this.id = id;
+        this.dbname = dbname;
         this.collection = collection;
         this.params = params;
         this.type = type;
@@ -182,6 +184,10 @@ class Query {
      * @return {Promise}
      */
     run(db) {
+        if (!db) {
+            return Promise.reject(new Error('No database found.'));
+        }
+
         if (this.type === 'find') {
             return this.find(db).catch(e => console.log(e));
         } else if (this.type === 'findOne') {
@@ -208,6 +214,7 @@ class Query {
     static unserialize(data) {
         return new Query(
             data.id || null,
+            data.dbname || null,
             data.collection,
             JSON.parse(data.params),
             data.type,

@@ -1,5 +1,5 @@
-const engine = require('engine.io-client');
-const EventEmitter = require('./../common/event-emitter');
+const EventEmitter = require('events');
+const url = require('url');
 
 /**
  * Requester module
@@ -13,57 +13,45 @@ class Requester extends EventEmitter {
         this.connecting = true;
         this.connected = false;
         this.queries = [];
-        this.options = {};
+        this.dbname = null;
     }
 
     /**
      * Connect to server
      * @param {string} uri
      * @param {Object} [options={}]
-     * @param {Object}
      *
      * @return {*}
      *
      * @alias module:Requester
      */
-    connect(uri, port = 8080, options = {}) {
+    connect(uri, options = {}) {
         if (!!this.connected) {
             return this;
         }
 
-        this.options = options;
-        if (!this.options.auth) {
-            this.options.auth = () => {};
-        }
+        uri = url.parse(uri);
+        this.dbname = uri.pathname.replace('/', '') || options.dbname || null;
 
         clearInterval(this.connecting);
-        this.listenNewConnection(uri, port);
+        this.listenNewConnection(uri.href);
+        this.connection = new WebSocket(uri.href);
 
-        this.connection = new engine.Socket(`${uri}:${port}`);
-        this.connection.on('open', () => {
+        this.connection.onopen = () => {
             this.connected = true;
-            this.trigger('open');
+            this.emit('open');
 
             if (!!this.connecting) {
                 clearInterval(this.connecting);
                 this.connecting = false;
             }
 
-            /**
-             * Receive message from server
-             * @param {Object} query
-             */
-            this.connection.on('message', query => {
-                query = JSON.parse(query);
-
-                if (!!query.error) {
-                    this.trigger(query.error, query.data);
-                    return;
-                }
+            this.connection.onmessage = result => {
+                let query = JSON.parse(result.data);
 
                 this.refresh(query);
-                this.trigger('message', query);
-                this.trigger(query.id, query);
+                this.emit('message', query);
+                this.emit(query.id, query);
 
                 if (
                     query.type === 'find' ||
@@ -71,18 +59,18 @@ class Requester extends EventEmitter {
                     query.type === 'aggregate' ||
                     query.type === 'distinct'
                 ) {
-                    this.trigger(`message-${query.collection}`, query);
-                    this.trigger(`${query.collection}.${query.type}.${query.params}`, query);
+                    this.emit(`message-${query.collection}`, query);
+                    this.emit(`${query.collection}.${query.type}.${query.params}`, query);
                 }
-            });
+            };
 
             // Lost connection with server, try to reconnect
-            this.connection.on('close', () => {
+            this.connection.onclose = () => {
                 this.connected = false;
-                this.trigger('close');
-                this.listenNewConnection(uri, port);
-            });
-        });
+                this.emit('close');
+                this.listenNewConnection(uri);
+            };
+        };
     }
 
     /**
@@ -90,9 +78,9 @@ class Requester extends EventEmitter {
      * @param {string} uri
      * @param port
      */
-    listenNewConnection(uri, port) {
+    listenNewConnection(uri) {
         this.connecting = setInterval(() => {
-            this.connect(uri, port);
+            this.connect(uri);
         }, 10000);
     }
 
@@ -137,7 +125,6 @@ class Requester extends EventEmitter {
         }
 
         const data = {};
-        this.options.auth(data);
 
         data.id = query.id;
         data.collection = query.collection;
@@ -149,6 +136,7 @@ class Requester extends EventEmitter {
         data.selector = JSON.stringify(query.selector);
         data.sort = JSON.stringify(query.sort);
         data.options = JSON.stringify(query.options);
+        data.dbname = this.dbname;
 
         this.connection.send(JSON.stringify(data));
     }
@@ -164,7 +152,7 @@ class Requester extends EventEmitter {
      *
      * @return {string} return query id
      */
-    find (collection, params = {}, limit = 1000, sort = null, skip = 0, callback = null) {
+    find(collection, params = {}, limit = 1000, sort = null, skip = 0, callback = null) {
         const type = 'find';
         const id = `${collection}.${type}.${JSON.stringify(params)}.${skip}.${limit}.${JSON.stringify(sort)}`;
         const query = { id, collection, params, type, limit, sort, skip };
@@ -186,7 +174,7 @@ class Requester extends EventEmitter {
      *
      * @return {string} return query id
      */
-    findOne (collection, params = {}, callback = null) {
+    findOne(collection, params = {}, callback = null) {
         const type = 'findOne';
         const id = `${collection}.${type}.${JSON.stringify(params)}`;
         const query = { id, collection, params, type };
@@ -209,7 +197,7 @@ class Requester extends EventEmitter {
      *
      * @return {string} return query id
      */
-    insert (collection, params, options = null, callback = null) {
+    insert(collection, params, options = null, callback = null) {
         const type = 'insert';
         const id = `${collection}.${type}.${JSON.stringify(params)}.${JSON.stringify(options)}`;
         const query = { id, collection, params, options, type };
@@ -230,7 +218,7 @@ class Requester extends EventEmitter {
      *
      * @return {string} return query id
      */
-    remove (collection, selector, options = null, callback = null) {
+    remove(collection, selector, options = null, callback = null) {
         const type = 'remove';
         const id = `${collection}.${type}.${JSON.stringify(selector)}.${JSON.stringify(options)}`;
         const query = { id, collection, selector, options, type };
@@ -252,7 +240,7 @@ class Requester extends EventEmitter {
      *
      * @return {string} return query id
      */
-    update (collection, selector, params, options = null, callback = null) {
+    update(collection, selector, params, options = null, callback = null) {
         const type = 'update';
         const id = `${collection}.${type}.${JSON.stringify(selector)}.${JSON.stringify(params)}.${JSON.stringify(options)}`;
         const query = { id, collection, selector, params, options, type };
@@ -323,7 +311,7 @@ class Requester extends EventEmitter {
      *
      * @return {string} return query id
      */
-    request (collection, params = {}, type = 'find', limit = 1000, sort = null, skip = 0, callback = null) {
+    request(collection, params = {}, type = 'find', limit = 1000, sort = null, skip = 0, callback = null) {
         const id = `${collection}.${type}.${JSON.stringify(params)}.${skip}.${limit}.${JSON.stringify(sort)}`;
         const query = { id, collection, params, type, limit, sort, skip };
 
@@ -351,7 +339,7 @@ class Requester extends EventEmitter {
      * @param {Callable} callback
      */
     unsubscribe(collection) {
-        this.off(`message-${collection}`);
+        this.removeListener(`message-${collection}`);
     }
 }
 

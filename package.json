@@ -4,7 +4,8 @@
   "description": "Megaqueries is a query manager with realtime exchanges between client and mongodb database",
   "main": "src/server/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "make build"
   },
   "babel": {
     "presets": [
@@ -23,9 +24,9 @@
     "browserify": "^13.0.1"
   },
   "dependencies": {
-    "engine.io": "^1.6.11",
-    "engine.io-client": "^1.6.11",
-    "mongodb": "^2.2.9"
+    "mongodb": "^2.2.9",
+    "node-uuid": "^1.4.8",
+    "ws": "^3.1.0"
   },
   "browserify": {
     "transform": [

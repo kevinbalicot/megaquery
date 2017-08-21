@@ -1,30 +1,40 @@
-const engine = require('engine.io');
-const EventEmitter = require('./../common/event-emitter');
+const EventEmitter = require('events');
+const WebSocket = require('ws');
+const uuid = require('node-uuid');
 const MongoClient = require('mongodb').MongoClient;
+
 const Query = require ('./query');
 
 // usefull doc https://zestedesavoir.com/tutoriels/312/debuter-avec-mongodb-pour-node-js/
 class Requester extends EventEmitter {
 
     /**
-     * @param {string} host
-     * @param {string} dbname
-     * @param {string} user
-     * @param {string} password
-     * @param {string} [port='27017']
+     * @param {Object|Array} options
      */
-    constructor(host, dbname, user, password = null, port = '27017') {
+    constructor(options) {
         super();
 
-        this.host = host;
-        this.user = user;
-        this.password = password;
-        this.port = port;
-        this.dbname = dbname;
+        let dbs = options;
+        if (!Array.isArray(options)) {
+            dbs = [options];
+        }
+
         this.options = {};
         this.storedQueries = [];
         this.server = null;
-        this.db = null;
+        this.dbs = [];
+
+        dbs.forEach(({ host, dbname, user, password, port }) => {
+            console.log(`Connecting on ${user}@${host}:${port || '27017'}/${dbname}...`);
+            MongoClient.connect(`mongodb://${user}:${password || null}@${host}:${port || '27017'}/${dbname}`, (error, db) => {
+                if (!!error) {
+                    throw new Error(error);
+                }
+
+                console.log(`Connected on ${user}@${host}:${port || '27017'}/${dbname}!`);
+                this.dbs.push(db);
+            });
+        });
     }
 
     /**
@@ -35,23 +45,19 @@ class Requester extends EventEmitter {
      * @return {Requester}
      */
     listen(port = 8080, options = {}) {
-        MongoClient.connect(`mongodb://${this.user}:${this.password}@${this.host}:${this.port}/${this.dbname}`, (error, db) => {
-            this.db = db;
-        });
-
-        this.server = engine.listen(port);
-
         this.options = options;
-        if (!this.options.auth) {
-            this.options.auth = () => Promise.resolve();
-        }
+        this.server = new WebSocket.Server({ port, verifyClient: this.options.auth });
+        this.server.storedClients = {};
 
         /**
          * On connection with client
          * @param {Object} client
          */
-        this.server.on('connection', client => {
-            this.trigger('open', client);
+        this.server.on('connection', (client, req) => {
+            client.id = uuid.v4();
+            this.server.storedClients[client.id] = client;
+
+            this.emit('connection', client);
 
             /**
              * On message from client
@@ -59,33 +65,29 @@ class Requester extends EventEmitter {
              */
             client.on('message', query => {
                 query = JSON.parse(query);
-                this.options.auth(query)
-                    .then(() => {
-                        this.trigger('message', query);
-                        query.params = query.params || '{}';
+                this.emit('message', query);
+                query.params = query.params || '{}';
 
-                        // If query if type of find, store query into cache else, run it and broadcast
-                        if (
-                            query.type === 'find' ||
-                            query.type === 'findOne' ||
-                            query.type === 'aggregate' ||
-                            query.type === 'distinct'
-                        ) {
-                            this.merge(query, client);
-                        } else if (
-                            query.type === 'update' ||
-                            query.type === 'insert' ||
-                            query.type === 'save' ||
-                            query.type === 'remove'
-                        ) {
-                            this.run(query, [client.id]).then(() => this.broadcast(query.collection));
-                        }
-                    })
-                    .catch(error => client.send(JSON.stringify({ error: 'auth-error', data: error })));
+                // If query if type of find, store query into cache else, run it and broadcast
+                if (
+                    query.type === 'find' ||
+                    query.type === 'findOne' ||
+                    query.type === 'aggregate' ||
+                    query.type === 'distinct'
+                ) {
+                    this.merge(query, client);
+                } else if (
+                    query.type === 'update' ||
+                    query.type === 'insert' ||
+                    query.type === 'save' ||
+                    query.type === 'remove'
+                ) {
+                    this.run(query, [client.id]).then(() => this.broadcast(query.collection));
+                }
             });
 
             client.on('close', () => {
-                this.trigger('close', client);
+                this.emit('close', client);
                 this.remove(client);
             });
         });
@@ -108,6 +110,7 @@ class Requester extends EventEmitter {
                 storedQuery.clients.push(client.id);
             }
 
+            storedQuery.query.cached = true;
             client.send(JSON.stringify(storedQuery.query));
         } else {
             // Else, add into cache with client and run it
@@ -130,10 +133,14 @@ class Requester extends EventEmitter {
         }
 
         let q = Query.unserialize(query);
+        let db = this.getDb(q.dbname);
 
-        return q.run(this.db).then(data => {
+        return q.run(db).then(data => {
             query.result = data;
-            clients.forEach(client => this.server.clients[client].send(JSON.stringify(query)));
+            clients.forEach(client => this.server.storedClients[client].send(JSON.stringify(query)));
+        }).catch(error => {
+            query.error = error.message;
+            clients.forEach(client => this.server.storedClients[client].send(JSON.stringify(query)));
         });
     }
 
@@ -159,6 +166,22 @@ class Requester extends EventEmitter {
 
             return storedQuery;
         });
+
+        delete this.server.storedClients[client.id];
+    }
+
+    /**
+     * Get database connection
+     * @param {string} dbname
+     *
+     * @return {*}
+     */
+    getDb(dbname = null) {
+        if (null === dbname) {
+            return this.dbs[0];
+        }
+
+        return this.dbs.find(db => db.databaseName === dbname);
     }
 }
 

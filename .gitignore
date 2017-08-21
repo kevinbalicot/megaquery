@@ -1,1 +1,4 @@
 node_modules/
+dist/
+index.html
+server.js
