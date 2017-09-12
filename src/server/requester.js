@@ -19,7 +19,6 @@ class Requester extends EventEmitter {
             dbs = [options];
         }
 
-        this.options = {};
         this.storedQueries = [];
         this.server = null;
         this.dbs = [];
@@ -45,8 +44,12 @@ class Requester extends EventEmitter {
      * @return {Requester}
      */
     listen(port = 8080, options = {}) {
-        this.options = options;
-        this.server = new WebSocket.Server({ port, verifyClient: this.options.auth });
+        if (!!options.server) {
+            this.server = new WebSocket.Server({ server: options.server, verifyClient: options.auth });
+        } else {
+            this.server = new WebSocket.Server({ port, verifyClient: options.auth });
+        }
+
         this.server.storedClients = {};
 
         /**
@@ -82,7 +85,7 @@ class Requester extends EventEmitter {
                     query.type === 'save' ||
                     query.type === 'remove'
                 ) {
-                    this.run(query, [client.id]).then(() => this.broadcast(query.collection));
+                    this.run(query, [client.id]).then(() => this.broadcast(query.collection, query.dbname));
                 }
             });
 
@@ -147,9 +150,10 @@ class Requester extends EventEmitter {
     /**
      * Get all collection's queries to run them
      * @param {string} collection
+     * @param {string} dbname
      */
-    broadcast(collection) {
-        let queries = this.storedQueries.filter(el => el.query.collection == collection);
+    broadcast(collection, dbname) {
+        let queries = this.storedQueries.filter(el => el.query.collection === collection && el.query.dbname === dbname);
 
         if (!!queries) {
             queries.forEach(el => this.run(el.query, el.clients));
