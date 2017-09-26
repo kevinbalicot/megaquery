@@ -1867,6 +1867,7 @@ var Requester = function (_EventEmitter) {
             this.connection.onopen = function () {
                 _this2.connected = true;
                 _this2.emit('open');
+                _this2.synchronize();
 
                 if (!!_this2.connecting) {
                     clearInterval(_this2.connecting);
@@ -1944,6 +1945,20 @@ var Requester = function (_EventEmitter) {
         }
 
         /**
+         * Synchronize all query when connection opened
+         */
+
+    }, {
+        key: 'synchronize',
+        value: function synchronize() {
+            var _this4 = this;
+
+            this.queries.forEach(function (query) {
+                return _this4.merge(query);
+            });
+        }
+
+        /**
          * Merge query into stored queries and send to server
          * @param {Object} query
          */
@@ -1959,6 +1974,10 @@ var Requester = function (_EventEmitter) {
                 if (!storedQuery) {
                     this.queries.push(query);
                 }
+            }
+
+            if (!this.connected) {
+                return;
             }
 
             var data = {};
