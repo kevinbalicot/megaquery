@@ -40,6 +40,7 @@ class Requester extends EventEmitter {
         this.connection.onopen = () => {
             this.connected = true;
             this.emit('open');
+            this.synchronize();
 
             if (!!this.connecting) {
                 clearInterval(this.connecting);
@@ -107,6 +108,13 @@ class Requester extends EventEmitter {
     }
 
     /**
+     * Synchronize all query when connection opened
+     */
+    synchronize() {
+        this.queries.forEach(query => this.merge(query));
+    }
+
+    /**
      * Merge query into stored queries and send to server
      * @param {Object} query
      */
@@ -122,6 +130,10 @@ class Requester extends EventEmitter {
             if (!storedQuery) {
                 this.queries.push(query);
             }
+        }
+
+        if (!this.connected) {
+            return;
         }
 
         const data = {};
