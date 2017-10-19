@@ -58,7 +58,8 @@ class Requester extends EventEmitter {
                     query.type === 'find' ||
                     query.type === 'findOne' ||
                     query.type === 'aggregate' ||
-                    query.type === 'distinct'
+                    query.type === 'distinct' ||
+                    query.type === 'count'
                 ) {
                     this.emit(`message-${query.collection}`, query);
                     this.emit(`${query.collection}.${query.type}.${query.params}`, query);
@@ -123,7 +124,8 @@ class Requester extends EventEmitter {
             query.type === 'find' ||
             query.type === 'findOne' ||
             query.type === 'aggregate' ||
-            query.type === 'distinct'
+            query.type === 'distinct' ||
+            query.type === 'count'
         ) {
             let storedQuery = this.queries.find(el => el.id === query.id);
 
@@ -301,6 +303,29 @@ class Requester extends EventEmitter {
         const type = 'distinct';
         const id = `${collection}.${type}.${field}.${JSON.stringify(params)}.${JSON.stringify(options)}`;
         const query = { id, collection, field, params, options, type };
+
+        this.merge(query);
+
+        if (!!callback) {
+            this.once(id, callback);
+        }
+
+        return id;
+    }
+
+    /**
+     * Create count query
+     * @param {string} collection - Mongo collection
+     * @param {Object} params - Mongo query params
+     * @param {Object} [options=null]
+     * @param {Callable} [callback=null]
+     *
+     * @return {string} return query id
+     */
+    count(collection, params, options = null, callback = null) {
+        const type = 'count';
+        const id = `${collection}.${type}.${JSON.stringify(params)}.${JSON.stringify(options)}`;
+        const query = { id, collection, params, options, type };
 
         this.merge(query);
 

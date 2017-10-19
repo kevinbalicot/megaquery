@@ -76,7 +76,8 @@ class Requester extends EventEmitter {
                     query.type === 'find' ||
                     query.type === 'findOne' ||
                     query.type === 'aggregate' ||
-                    query.type === 'distinct'
+                    query.type === 'distinct' ||
+                    query.type === 'count'
                 ) {
                     this.merge(query, client);
                 } else if (

@@ -2201,6 +2201,35 @@ var Requester = function (_EventEmitter) {
         }
 
         /**
+         * Create count query
+         * @param {string} collection - Mongo collection
+         * @param {Object} params - Mongo query params
+         * @param {Object} [options=null]
+         * @param {Callable} [callback=null]
+         *
+         * @return {string} return query id
+         */
+
+    }, {
+        key: 'count',
+        value: function count(collection, params) {
+            var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
+            var callback = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
+
+            var type = 'count';
+            var id = collection + '.' + type + '.' + JSON.stringify(params) + '.' + JSON.stringify(options);
+            var query = { id: id, collection: collection, params: params, options: options, type: type };
+
+            this.merge(query);
+
+            if (!!callback) {
+                this.once(id, callback);
+            }
+
+            return id;
+        }
+
+        /**
          * Create custom request query
          * @param {string} collection - Mongo collection
          * @param {Object} [params={}] - Mongo query params

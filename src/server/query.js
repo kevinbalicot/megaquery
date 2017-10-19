@@ -160,6 +160,24 @@ class Query {
     }
 
     /**
+     * Play count query
+     * @param {Object} db
+     *
+     * @return {Promise}
+     */
+    count(db) {
+        return new Promise((resolve, reject) => {
+            db.collection(this.collection).count(this.params, this.options, (error, results) => {
+                if (!!error) {
+                    return reject(error);
+                }
+
+                return resolve(results);
+            });
+        });
+    }
+
+    /**
      * Play distinct query
      * @param {Object} db
      *
@@ -202,6 +220,8 @@ class Query {
             return this.aggregate(db).catch(e => console.log(e));
         } else if (this.type === 'distinct') {
             return this.distinct(db).catch(e => console.log(e));
+        } else if (this.type === 'count') {
+            return this.count(db).catch(e => console.log(e));
         }
     }
 
