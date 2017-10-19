@@ -1881,7 +1881,7 @@ var Requester = function (_EventEmitter) {
                     _this2.emit('message', query);
                     _this2.emit(query.id, query);
 
-                    if (query.type === 'find' || query.type === 'findOne' || query.type === 'aggregate' || query.type === 'distinct') {
+                    if (query.type === 'find' || query.type === 'findOne' || query.type === 'aggregate' || query.type === 'distinct' || query.type === 'count') {
                         _this2.emit('message-' + query.collection, query);
                         _this2.emit(query.collection + '.' + query.type + '.' + query.params, query);
                     }
@@ -1966,7 +1966,7 @@ var Requester = function (_EventEmitter) {
     }, {
         key: 'merge',
         value: function merge(query) {
-            if (query.type === 'find' || query.type === 'findOne' || query.type === 'aggregate' || query.type === 'distinct') {
+            if (query.type === 'find' || query.type === 'findOne' || query.type === 'aggregate' || query.type === 'distinct' || query.type === 'count') {
                 var storedQuery = this.queries.find(function (el) {
                     return el.id === query.id;
                 });
