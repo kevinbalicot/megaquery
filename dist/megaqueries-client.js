@@ -1833,6 +1833,7 @@ var Requester = function (_EventEmitter) {
         _this.connected = false;
         _this.queries = [];
         _this.dbname = null;
+        _this.options = { cache: true };
         return _this;
     }
 
@@ -1858,16 +1859,21 @@ var Requester = function (_EventEmitter) {
             }
 
             uri = url.parse(uri);
-            this.dbname = uri.pathname.replace('/', '') || options.dbname || null;
+            if (!!uri.pathname) {
+                this.dbname = uri.pathname.replace('/', '');
+            } else {
+                this.dbname = options.dbname || null;
+            }
 
             clearInterval(this.connecting);
             this.listenNewConnection(uri.href);
             this.connection = new WebSocket(uri.href);
+            this.options = options;
 
             this.connection.onopen = function () {
                 _this2.connected = true;
-                _this2.emit('open');
                 _this2.synchronize();
+                _this2.emit('open');
 
                 if (!!_this2.connecting) {
                     clearInterval(_this2.connecting);
@@ -1953,7 +1959,9 @@ var Requester = function (_EventEmitter) {
         value: function synchronize() {
             var _this4 = this;
 
-            this.queries.forEach(function (query) {
+            this.queries.filter(function (query) {
+                return query.dbname === _this4.dbname;
+            }).forEach(function (query) {
                 return _this4.merge(query);
             });
         }
@@ -1971,7 +1979,7 @@ var Requester = function (_EventEmitter) {
                     return el.id === query.id;
                 });
 
-                if (!storedQuery) {
+                if (!storedQuery && !!this.options.cache) {
                     this.queries.push(query);
                 }
             }
