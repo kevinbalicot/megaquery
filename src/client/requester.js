@@ -31,7 +31,11 @@ class Requester extends EventEmitter {
         }
 
         uri = url.parse(uri);
-        this.dbname = uri.pathname.replace('/', '') || options.dbname || null;
+        if (!!uri.pathname) {
+            this.dbname = uri.pathname.replace('/', '')
+        } else {
+            this.dbname = options.dbname || null;
+        }
 
         clearInterval(this.connecting);
         this.listenNewConnection(uri.href);
@@ -39,8 +43,8 @@ class Requester extends EventEmitter {
 
         this.connection.onopen = () => {
             this.connected = true;
-            this.emit('open');
             this.synchronize();
+            this.emit('open');
 
             if (!!this.connecting) {
                 clearInterval(this.connecting);
@@ -112,7 +116,8 @@ class Requester extends EventEmitter {
      * Synchronize all query when connection opened
      */
     synchronize() {
-        this.queries.forEach(query => this.merge(query));
+        this.queries.filter(query => query.dbname === this.dbname)
+            .forEach(query => this.merge(query));
     }
 
     /**
