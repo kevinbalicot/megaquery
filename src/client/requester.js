@@ -14,6 +14,7 @@ class Requester extends EventEmitter {
         this.connected = false;
         this.queries = [];
         this.dbname = null;
+        this.options = { cache: true };
     }
 
     /**
@@ -40,6 +41,7 @@ class Requester extends EventEmitter {
         clearInterval(this.connecting);
         this.listenNewConnection(uri.href);
         this.connection = new WebSocket(uri.href);
+        this.options = options;
 
         this.connection.onopen = () => {
             this.connected = true;
@@ -134,7 +136,7 @@ class Requester extends EventEmitter {
         ) {
             let storedQuery = this.queries.find(el => el.id === query.id);
 
-            if (!storedQuery) {
+            if (!storedQuery && !!this.options.cache) {
                 this.queries.push(query);
             }
         }
