@@ -3,6 +3,7 @@ const WebSocket = require('ws');
 const uuid = require('node-uuid');
 const MongoClient = require('mongodb').MongoClient;
 
+const compose = require('./compose');
 const Query = require ('./query');
 
 // usefull doc https://zestedesavoir.com/tutoriels/312/debuter-avec-mongodb-pour-node-js/
@@ -19,6 +20,7 @@ class Requester extends EventEmitter {
             dbs = [options];
         }
 
+        this.middlewares = [];
         this.storedQueries = [];
         this.server = null;
         this.dbs = [];
@@ -71,6 +73,8 @@ class Requester extends EventEmitter {
                 this.emit('message', query);
                 query.params = query.params || '{}';
 
+                this.dispatchMiddelwares(query);
+
                 // If query if type of find, store query into cache else, run it and broadcast
                 if (
                     query.type === 'find' ||
@@ -97,6 +101,26 @@ class Requester extends EventEmitter {
         });
 
         return this;
+    }
+
+    /**
+     * Add middleware
+     * @param {Callable} callback
+     *
+     * @alias module:BaseStore
+     */
+    use(callback) {
+        this.middlewares.push({ callback });
+    }
+
+    /**
+     * Dispatch action at middelwares
+     * @param {Object} query
+     *
+     * @alias module:BaseStore
+     */
+    dispatchMiddelwares(query) {
+        compose(query, this.middlewares)();
     }
 
     /**
