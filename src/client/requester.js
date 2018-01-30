@@ -41,7 +41,7 @@ class Requester extends EventEmitter {
         clearInterval(this.connecting);
         this.listenNewConnection(uri.href);
         this.connection = new WebSocket(uri.href);
-        this.options = options;
+        this.options = Object.assign(this.options, options);
 
         this.connection.onopen = () => {
             this.connected = true;
@@ -118,8 +118,7 @@ class Requester extends EventEmitter {
      * Synchronize all query when connection opened
      */
     synchronize() {
-        this.queries.filter(query => query.dbname === this.dbname)
-            .forEach(query => this.merge(query));
+        this.queries.forEach(query => this.merge(query));
     }
 
     /**
