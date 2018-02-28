@@ -59,6 +59,12 @@ class Requester extends EventEmitter {
          * @param {Object} client
          */
         this.server.on('connection', (client, req) => {
+            if (!!req.verifyParameters) {
+                for (let param in req.verifyParameters) {
+                    client[param] = req.verifyParameters[param];
+                }
+            }
+
             client.id = uuid.v4();
             this.server.storedClients[client.id] = client;
 
@@ -73,25 +79,26 @@ class Requester extends EventEmitter {
                 this.emit('message', query);
                 query.params = query.params || '{}';
 
-                this.dispatchMiddelwares(query);
-
-                // If query if type of find, store query into cache else, run it and broadcast
-                if (
-                    query.type === 'find' ||
-                    query.type === 'findOne' ||
-                    query.type === 'aggregate' ||
-                    query.type === 'distinct' ||
-                    query.type === 'count'
-                ) {
-                    this.merge(query, client);
-                } else if (
-                    query.type === 'update' ||
-                    query.type === 'insert' ||
-                    query.type === 'save' ||
-                    query.type === 'remove'
-                ) {
-                    this.run(query, [client.id]).then(() => this.broadcast(query.collection, query.dbname));
-                }
+                this.dispatchMiddelwares('beforequery', { query, client }, () => {
+                    // If query if type of find, store query into cache else, run it and broadcast
+                    if (
+                        query.type === 'find' ||
+                        query.type === 'findOne' ||
+                        query.type === 'aggregate' ||
+                        query.type === 'distinct' ||
+                        query.type === 'count'
+                    ) {
+                        this.merge(query, client);
+                    } else if (
+                        query.type === 'update' ||
+                        query.type === 'insert' ||
+                        query.type === 'save' ||
+                        query.type === 'remove'
+                    ) {
+                        this.run(query, [client.id])
+                            .then(() => this.broadcast(query.collection, query.dbname));
+                    }
+                });
             });
 
             client.on('close', () => {
@@ -105,22 +112,45 @@ class Requester extends EventEmitter {
 
     /**
      * Add middleware
+     * @param {string} event
      * @param {Callable} callback
      *
      * @alias module:BaseStore
      */
-    use(callback) {
-        this.middlewares.push({ callback });
+    use(event, callback) {
+        this.middlewares.push({ event, callback });
     }
 
     /**
-     * Dispatch action at middelwares
-     * @param {Object} query
+     * Add before query middleware
+     * @param {Callable} callback
      *
      * @alias module:BaseStore
      */
-    dispatchMiddelwares(query) {
-        compose(query, this.middlewares)();
+    before(callback) {
+        this.use('beforequery', callback);
+    }
+
+    /**
+     * Add after query middleware
+     * @param {Callable} callback
+     *
+     * @alias module:BaseStore
+     */
+    after(callback) {
+        this.use('afterquery', callback);
+    }
+
+    /**
+     * Dispatch event at middelwares
+     * @param {string} event
+     * @param {Object} data
+     *
+     * @alias module:BaseStore
+     */
+    dispatchMiddelwares(event, data, callback) {
+        const middlewares = this.middlewares.filter(m => m.event === event);
+        compose(data, middlewares, callback)();
     }
 
     /**
@@ -139,7 +169,10 @@ class Requester extends EventEmitter {
             }
 
             storedQuery.query.cached = true;
-            client.send(JSON.stringify(storedQuery.query));
+
+            this.dispatchMiddelwares('afterquery', { query, clients: [client] }, () => {
+                client.send(JSON.stringify(storedQuery.query));
+            });
         } else {
             // Else, add into cache with client and run it
             this.storedQueries.push({ query, clients: [client.id] });
@@ -165,11 +198,42 @@ class Requester extends EventEmitter {
 
         return q.run(db).then(data => {
             query.result = data;
-            clients.forEach(client => this.server.storedClients[client].send(JSON.stringify(query)));
+
+            this.dispatchMiddelwares('afterquery', { query, clients }, () => {
+                clients.forEach(client => this.server.storedClients[client].send(JSON.stringify(query)));
+            });
         }).catch(error => {
             query.error = error.message;
-            clients.forEach(client => this.server.storedClients[client].send(JSON.stringify(query)));
+
+            this.dispatchMiddelwares('afterquery', { query, clients }, () => {
+                clients.forEach(client => this.server.storedClients[client].send(JSON.stringify(query)));
+            });
         });
+    }
+
+    /**
+     * Abort query
+     * @param {Object} query
+     * @param {Object} client
+     * @param {string} [raison]
+     */
+    abort(query, client, raison = 'Query aborted by server.') {
+        query.type = 'aborted';
+        query.error = raison;
+
+        client.send(JSON.stringify(query));
+    }
+
+    /**
+     * Make a query
+     * @param {Object} data
+     *
+     * @return {Promise}
+     */
+    query({ dbname, collection, params, type, limit, skip, sort, options, selector, field }) {
+        dbname = !!dbname ? dbname : null;
+        const query = new Query(null, dbname, collection, params, type, limit, skip, sort, options, selector, field);
+        return query.run(this.getDb(query.dbname));
     }
 
     /**

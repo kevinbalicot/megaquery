@@ -5,19 +5,18 @@
  */
 
  /**
-  * @param {Object} query
+  * @param {Object} data
   * @param {Array<Object>} middlewares
   *
   * @return {*}
   *
   * @alias module:compose
   */
-module.exports = (query, middlewares) => {
-    let next = () => {};
+module.exports = (data, middlewares, next = () => {}) => {
     let i = middlewares.length;
 
     while (i--) {
-        next = middlewares[i].callback.bind(middlewares[i], query, next);
+        next = middlewares[i].callback.bind(middlewares[i], data, next);
     }
 
     return next;

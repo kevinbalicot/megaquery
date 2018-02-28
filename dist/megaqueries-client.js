@@ -1868,7 +1868,7 @@ var Requester = function (_EventEmitter) {
             clearInterval(this.connecting);
             this.listenNewConnection(uri.href);
             this.connection = new WebSocket(uri.href);
-            this.options = options;
+            this.options = Object.assign(this.options, options);
 
             this.connection.onopen = function () {
                 _this2.connected = true;
@@ -1959,9 +1959,7 @@ var Requester = function (_EventEmitter) {
         value: function synchronize() {
             var _this4 = this;
 
-            this.queries.filter(function (query) {
-                return query.dbname === _this4.dbname;
-            }).forEach(function (query) {
+            this.queries.forEach(function (query) {
                 return _this4.merge(query);
             });
         }
