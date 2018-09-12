@@ -1,6 +1,6 @@
 {
-  "name": "megaquery",
-  "version": "1.0.0",
+  "name": "megaquery-js",
+  "version": "1.1.0",
   "description": "Megaquery is a query manager with realtime exchanges between client and mongodb database",
   "main": "index.js",
   "scripts": {
@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "mongodb": "^3.1.4",
-    "pxl-json-validator": "^0.1.0",
+    "pxl-json-validator": "^0.2.0",
     "uuid": "^3.3.2",
     "ws": "^6.0.0"
   },
