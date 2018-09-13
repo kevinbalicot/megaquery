@@ -33,6 +33,12 @@ class SocketServer extends WebSocketServer {
             options.verifyClient = auth;
         }
 
+        delete options.host;
+        delete options.dbname;
+        delete options.user;
+        delete options.password;
+        delete options.port;
+
         super(options, callback);
 
         this.storedQueries = [];
@@ -43,6 +49,8 @@ class SocketServer extends WebSocketServer {
             }
 
             this.requester = new Requester(client.db(dbname), useCache);
+
+            this.emit('dbconnected', this.requester);
         });
 
         this.on('connection', (client, req) => {

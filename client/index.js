@@ -185,9 +185,11 @@ class Repository {
             };
 
             this.subscribers.push(subscribe);
+
+            return subscribe.id;
         }
 
-        return subscribe.id;
+        return null;
     }
 
     /**
