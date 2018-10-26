@@ -26,8 +26,8 @@ class SocketServer extends WebSocketServer {
      * @param {object} options
      */
     constructor(options, callback) {
-        const { host, dbname, user, password, port, server, verifyClient, useCache } = options;
-        const uri = `mongodb://${user}:${!!password ? password : ''}@${host}:${!!port ? port : 27017}/${dbname}`;
+        const { host, dbname, user, password, hostPort, server, verifyClient, useCache } = options;
+        const uri = `mongodb://${user}:${!!password ? password : ''}@${host}:${!!hostPort ? hostPort : 27017}/${dbname}`;
 
         if (!options.verifyClient) {
             options.verifyClient = auth;
@@ -37,7 +37,7 @@ class SocketServer extends WebSocketServer {
         delete options.dbname;
         delete options.user;
         delete options.password;
-        delete options.port;
+        delete options.hostPort;
 
         super(options, callback);
 
@@ -118,7 +118,19 @@ class SocketServer extends WebSocketServer {
      */
     query(queryHeader, event = null) {
         if (null === event) {
-            return this.requester.query(queryHeader);
+            return this.requester.query(queryHeader).then(query => {
+                if (
+                    !queryHeader.noSynchronize &&
+                    (queryHeader.type === 'update' ||
+                    queryHeader.type === 'insert' ||
+                    queryHeader.type === 'save' ||
+                    queryHeader.type === 'remove')
+                ) {
+                    this.synchronizeQuery(queryHeader);
+                }
+
+                return query;
+            });
         }
 
         queryHeader.id = event.queryId;
