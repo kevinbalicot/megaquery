@@ -25,7 +25,7 @@ class Client extends EventEmitter {
 
         this.listenNewConnection(uri);
 
-        this.client = new WebSocket(uri, options);
+        this.client = new WebSocket(uri);
         this.client.onopen = () => {
             this.connected = true;
             this.synchronizeMessages();
