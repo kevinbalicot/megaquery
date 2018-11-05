@@ -1,14 +1,17 @@
 const EventEmitter = require('events');
+const WebSocket = require('ws');
 const uuid = require('uuid');
 
-class Client extends EventEmitter {
-    constructor() {
+class SocketClient extends EventEmitter {
+    constructor(uri, options = {}) {
         super();
 
         this.messages = [];
         this.connecting = true;
         this.connected = false;
         this.subscribers = {};
+
+        this.connect(uri, options);
     }
 
     /**
@@ -25,8 +28,8 @@ class Client extends EventEmitter {
 
         this.listenNewConnection(uri);
 
-        this.client = new WebSocket(uri);
-        this.client.onopen = () => {
+        this.client = new WebSocket(uri, options);
+        this.client.on('open', () => {
             this.connected = true;
             this.synchronizeMessages();
 
@@ -37,21 +40,21 @@ class Client extends EventEmitter {
 
             this.emit('open');
 
-            this.client.onmessage = message => {
+            this.client.on('message', message => {
                 for (let subribeId in this.subscribers) {
-                    this.subscribers[subribeId](JSON.parse(message.data));
+                    this.subscribers[subribeId](JSON.parse(message));
                 }
 
-                this.emit('message', JSON.parse(message.data));
-            };
+                this.emit('message', JSON.parse(message));
+            });
 
             // Lost connection with server, try to reconnect
-            this.client.onclose = () => {
+            this.client.on('close', () => {
                 this.connected = false;
                 this.emit('close');
                 this.listenNewConnection(uri);
-            };
-        };
+            });
+        });
     }
 
     /**
@@ -240,7 +243,4 @@ class Repository {
     }
 }
 
-module.exports = { Client, Repository };
-
-window.Client = Client;
-window.Repository = Repository;
+module.exports = { SocketClient, Repository };
