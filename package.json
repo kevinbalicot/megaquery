@@ -1,11 +1,11 @@
 {
   "name": "megaquery-js",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Megaquery is a query manager with realtime exchanges between client and mongodb database",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepublish": "make build"
+    "prepare": "make build"
   },
   "repository": {
     "type": "git",
