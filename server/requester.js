@@ -21,8 +21,8 @@ class Requester {
      *
      * @return {Promise}
      */
-    find(collection, params, skip = 0, limit = 100, sort = null) {
-        const id = `${collection}.find.${JSON.stringify(params)}.${skip}.${limit}.${JSON.stringify(sort)}`;
+    find(collection, params, options = {}, skip = 0, limit = 100, sort = null) {
+        const id = `${collection}.find.${JSON.stringify(params)}.${JSON.stringify(options)}.${skip}.${limit}.${JSON.stringify(sort)}`;
         const query = { id, type: 'find', cached: false, result: null };
 
         return new Promise((resolve, reject) => {
@@ -32,7 +32,7 @@ class Requester {
                 return resolve(queryFromCache);
             }
 
-            this.db.collection(collection).find(params).skip(skip).limit(limit).sort(sort).toArray((error, results) => {
+            this.db.collection(collection).find(params, options).skip(skip).limit(limit).sort(sort).toArray((error, results) => {
                 if (!!error) {
                     return reject(error);
                 }
@@ -94,7 +94,33 @@ class Requester {
         const query = { id, type: 'insert', cached: false, result: null };
 
         return new Promise((resolve, reject) => {
-            this.db.collection(collection).insert(params, options, (error, results) => {
+            this.db.collection(collection).insertOne(params, options, (error, results) => {
+                if (!!error) {
+                    return reject(error);
+                }
+
+                query.result = results;
+                this.clearCache(collection);
+
+                return resolve(query);
+            });
+        });
+    }
+
+    /**
+     * Play insert many query
+     * @param {string} collection
+     * @param {Object} params
+     * @param {Object} [options=null]
+     *
+     * @return {Promise}
+     */
+    insertMany(collection, docs, options = null) {
+        const id = `${collection}.insert.${JSON.stringify(docs)}.${JSON.stringify(options)}`;
+        const query = { id, type: 'insertMany', cached: false, result: null };
+
+        return new Promise((resolve, reject) => {
+            this.db.collection(collection).insertMany(docs, options, (error, results) => {
                 if (!!error) {
                     return reject(error);
                 }
@@ -125,7 +151,38 @@ class Requester {
                 delete selector.id;
             }
 
-            this.db.collection(collection).remove(selector, options, (error, response) => {
+            this.db.collection(collection).deleteOne(selector, options, (error, response) => {
+                if (!!error) {
+                    return reject(error);
+                }
+
+                query.result = response;
+                this.clearCache(collection);
+
+                return resolve(query);
+            });
+        });
+    }
+
+    /**
+     * Play remove many query
+     * @param {string} collection
+     * @param {Object} selector
+     * @param {Object} [options=null]
+     *
+     * @return {Promise}
+     */
+    removeMany(collection, selector, options = null) {
+        const id = `${collection}.remove.${JSON.stringify(selector)}.${JSON.stringify(options)}`;
+        const query = { id, type: 'removeMany', cached: false, result: null };
+
+        return new Promise((resolve, reject) => {
+            if (!!selector.id || !!selector._id ) {
+                selector._id = new MongoObjectID(selector._id || selector.id);
+                delete selector.id;
+            }
+
+            this.db.collection(collection).deleteMany(selector, options, (error, response) => {
                 if (!!error) {
                     return reject(error);
                 }
@@ -157,7 +214,39 @@ class Requester {
                 delete selector.id;
             }
 
-            this.db.collection(collection).update(selector, params, options, (error, response) => {
+            this.db.collection(collection).updateOne(selector, params, options, (error, response) => {
+                if (!!error) {
+                    return reject(error);
+                }
+
+                query.result = response;
+                this.clearCache(collection);
+
+                return resolve(query);
+            });
+        });
+    }
+
+    /**
+     * Play update query
+     * @param {string} collection
+     * @param {Object} selector
+     * @param {Object} params
+     * @param {Object} [options=null]
+     *
+     * @return {Promise}
+     */
+    updateMany(collection, selector, params, options = null) {
+        const id = `${collection}.update.${JSON.stringify(selector)}.${JSON.stringify(params)}.${JSON.stringify(options)}`;
+        const query = { id, type: 'updateMany', cached: false, result: null };
+
+        return new Promise((resolve, reject) => {
+            if (!!selector.id || !!selector._id ) {
+                selector._id = new MongoObjectID(selector._id || selector.id);
+                delete selector.id;
+            }
+
+            this.db.collection(collection).updateMany(selector, params, options, (error, response) => {
                 if (!!error) {
                     return reject(error);
                 }
@@ -268,7 +357,7 @@ class Requester {
                 return resolve(queryFromCache);
             }
 
-            this.db.collection(collection).count(params, options, (error, count) => {
+            this.db.collection(collection).countDocuments(params, options, (error, count) => {
                 if (!!error) {
                     return reject(error);
                 }
@@ -304,10 +393,16 @@ class Requester {
             return this.findOne(collection, params);
         } else if (type === 'insert') {
             return this.insert(collection, params, options);
+        } else if (type === 'insertMany') {
+            return this.insertMany(collection, params, options);
         } else if (type === 'remove') {
             return this.remove(collection, selector, options);
+        } else if (type === 'removeMany') {
+            return this.removeMany(collection, selector, options);
         } else if (type === 'update') {
             return this.update(collection, selector, params, options);
+        } else if (type === 'updateMany') {
+            return this.updateMany(collection, selector, params, options);
         } else if (type === 'aggregate') {
             return this.aggregate(collection, params, options);
         } else if (type === 'distinct') {
