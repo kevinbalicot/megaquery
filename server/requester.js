@@ -52,8 +52,8 @@ class Requester {
      *
      * @return {Promise}
      */
-    findOne(collection, params) {
-        const id = `${collection}.findOne.${JSON.stringify(params)}`;
+    findOne(collection, params, options = {}) {
+        const id = `${collection}.findOne.${JSON.stringify(params)}.${JSON.stringify(options)}`;
         const query = { id, type: 'findOne', cached: false, result: null };
 
         return new Promise((resolve, reject) => {
@@ -388,9 +388,9 @@ class Requester {
         field
     }) {
         if (type === 'find') {
-            return this.find(collection, params, skip, limit, sort);
+            return this.find(collection, params, options, skip, limit, sort);
         } else if (type === 'findOne') {
-            return this.findOne(collection, params);
+            return this.findOne(collection, params, options);
         } else if (type === 'insert') {
             return this.insert(collection, params, options);
         } else if (type === 'insertMany') {
