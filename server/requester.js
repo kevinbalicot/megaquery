@@ -94,12 +94,12 @@ class Requester {
         const query = { id, type: 'insert', cached: false, result: null };
 
         return new Promise((resolve, reject) => {
-            this.db.collection(collection).insertOne(params, options, (error, results) => {
+            this.db.collection(collection).insertOne(params, options, (error, response) => {
                 if (!!error) {
                     return reject(error);
                 }
 
-                query.result = results;
+                query.result = this._parseResponse(response);
                 this.clearCache(collection);
 
                 return resolve(query);
@@ -120,12 +120,12 @@ class Requester {
         const query = { id, type: 'insertMany', cached: false, result: null };
 
         return new Promise((resolve, reject) => {
-            this.db.collection(collection).insertMany(docs, options, (error, results) => {
+            this.db.collection(collection).insertMany(docs, options, (error, response) => {
                 if (!!error) {
                     return reject(error);
                 }
 
-                query.result = results;
+                query.result = this._parseResponse(response);
                 this.clearCache(collection);
 
                 return resolve(query);
@@ -156,7 +156,7 @@ class Requester {
                     return reject(error);
                 }
 
-                query.result = response;
+                query.result = this._parseResponse(response);
                 this.clearCache(collection);
 
                 return resolve(query);
@@ -187,7 +187,7 @@ class Requester {
                     return reject(error);
                 }
 
-                query.result = response;
+                query.result = this._parseResponse(response);
                 this.clearCache(collection);
 
                 return resolve(query);
@@ -219,7 +219,7 @@ class Requester {
                     return reject(error);
                 }
 
-                query.result = response;
+                query.result = this._parseResponse(response);
                 this.clearCache(collection);
 
                 return resolve(query);
@@ -251,7 +251,7 @@ class Requester {
                     return reject(error);
                 }
 
-                query.result = response;
+                query.result = this._parseResponse(response);
                 this.clearCache(collection);
 
                 return resolve(query);
@@ -431,6 +431,32 @@ class Requester {
             query.cached = true;
             this.storedQueries.push(query);
         }
+    }
+
+    _parseResponse(response) {
+        const {
+            insertedCount,
+            ops,
+            insertedId,
+            upsertedId,
+            deletedCount,
+            matchedCount,
+            modifiedCount,
+            upsertedCount,
+            result
+        } = response;
+
+        return {
+            insertedCount,
+            ops,
+            insertedId,
+            upsertedId,
+            deletedCount,
+            matchedCount,
+            modifiedCount,
+            upsertedCount,
+            result
+        };
     }
 }
 
