@@ -2,13 +2,17 @@ const EventEmitter = require('events');
 const uuid = require('uuid');
 
 class Client extends EventEmitter {
-    constructor() {
+    constructor(uri = null, options = {}) {
         super();
 
         this.messages = [];
         this.connecting = true;
         this.connected = false;
         this.subscribers = {};
+
+        if (uri) {
+            this.connect(uri, options);
+        }
     }
 
     /**
@@ -31,7 +35,7 @@ class Client extends EventEmitter {
             this.synchronizeMessages();
 
             if (!!this.connecting) {
-                clearInterval(this.connecting);
+                clearTimeout(this.connecting);
                 this.connecting = false;
             }
 
@@ -59,8 +63,8 @@ class Client extends EventEmitter {
      * @param {string} uri
      */
     listenNewConnection(uri) {
-        clearInterval(this.connecting);
-        this.connecting = setInterval(() => {
+        clearTimeout(this.connecting);
+        this.connecting = setTimeout(() => {
             this.connect(uri);
         }, 10000);
     }
@@ -114,6 +118,13 @@ class Client extends EventEmitter {
      */
     unsubscribe(id) {
         delete this.subscribers[id];
+    }
+
+    /**
+     * Close connection
+     */
+    close() {
+        this.client.close();
     }
 }
 
