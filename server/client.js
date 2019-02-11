@@ -122,10 +122,17 @@ class SocketClient extends EventEmitter {
     }
 
     /**
-     * Close connection
+     * Clear connection
      */
-    close() {
+    clear() {
         this.client.terminate();
+
+        this.messages = [];
+        this.connecting = true;
+        this.connected = false;
+
+        this.emit('close');
+        this.removeAllListeners();
     }
 }
 

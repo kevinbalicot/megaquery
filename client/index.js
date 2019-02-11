@@ -121,10 +121,17 @@ class Client extends EventEmitter {
     }
 
     /**
-     * Close connection
+     * Clear connection
      */
-    close() {
+    clear() {
         this.client.close();
+
+        this.messages = [];
+        this.connecting = true;
+        this.connected = false;
+
+        this.emit('close');
+        this.removeAllListeners();
     }
 }
 
