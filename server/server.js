@@ -27,7 +27,13 @@ class SocketServer extends WebSocketServer {
      */
     constructor(options, callback) {
         const { host, dbname, user, password, hostPort, server, verifyClient, useCache } = options;
-        const uri = `mongodb://${user}:${!!password ? password : ''}@${host}:${!!hostPort ? hostPort : 27017}/${dbname}`;
+
+        let uri;
+        if (options.user && options.password) {
+            uri = `mongodb://${user}:${!!password ? password : ''}@${host}:${!!hostPort ? hostPort : 27017}/${dbname}`;
+        } else {
+            uri = `mongodb://${host}:${!!hostPort ? hostPort : 27017}/${dbname}`;
+        }
 
         if (!options.verifyClient) {
             options.verifyClient = auth;
@@ -43,7 +49,7 @@ class SocketServer extends WebSocketServer {
 
         this.storedQueries = [];
 
-        MongoClient.connect(uri, (err, client) => {
+        MongoClient.connect(uri, { useNewUrlParser: true }, (err, client) => {
             if (!!err) {
                 throw new Error(err);
             }
