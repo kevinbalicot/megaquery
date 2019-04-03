@@ -1,3 +1,4 @@
+const MongoClient = require('mongodb').MongoClient;
 const MongoObjectID = require("mongodb").ObjectID;
 
 class Requester {
@@ -5,14 +6,36 @@ class Requester {
      * @param {Object} db
      * @param {boolean} [userCache=false]
      */
-    constructor(db, useCache = false) {
-        this.db = db;
+    constructor(uri, dbname, useCache = false) {
+        this.uri = uri;
+        this.dbname = dbname;
         this.useCache = useCache;
         this.storedQueries = [];
     }
 
     /**
+     * Connect to database
+     * @return {Promise}
+     */
+    connect() {
+        return new Promise((resolve, reject) => {
+            MongoClient.connect(this.uri, { useNewUrlParser: true }, (err, client) => {
+                if (!!err) {
+                    return reject(err);
+                }
+
+                if (!client.db(this.dbname)) {
+                    return reject(`Database ${this.dbname} not found.`);
+                }
+
+                return resolve(client);
+            });
+        });
+    }
+
+    /**
      * Play find query
+     * @param {MongoClient} client
      * @param {string} collection
      * @param {Object} params
      * @param {number} [limit=100]
@@ -21,7 +44,7 @@ class Requester {
      *
      * @return {Promise}
      */
-    find(collection, params, options = {}, skip = 0, limit = 100, sort = null) {
+    find(client, collection, params, options = {}, skip = 0, limit = 100, sort = null) {
         const id = `${collection}.find.${JSON.stringify(params)}.${JSON.stringify(options)}.${skip}.${limit}.${JSON.stringify(sort)}`;
         const query = { id, type: 'find', cached: false, result: null };
 
@@ -29,16 +52,19 @@ class Requester {
             const queryFromCache = this.fromCache(id);
 
             if (queryFromCache) {
+                client.close();
                 return resolve(queryFromCache);
             }
 
-            this.db.collection(collection).find(params, options).skip(skip).limit(limit).sort(sort).toArray((error, results) => {
+            client.db(this.dbname).collection(collection).find(params, options).skip(skip).limit(limit).sort(sort).toArray((error, results) => {
                 if (!!error) {
                     return reject(error);
                 }
 
                 query.result = results;
                 this.cache(query);
+
+                client.close();
 
                 return resolve(query);
             });
@@ -47,12 +73,13 @@ class Requester {
 
     /**
      * Play find one query
+     * @param {MongoClient} client
      * @param {string} collection
      * @param {Object} params
      *
      * @return {Promise}
      */
-    findOne(collection, params, options = {}) {
+    findOne(client, collection, params, options = {}) {
         const id = `${collection}.findOne.${JSON.stringify(params)}.${JSON.stringify(options)}`;
         const query = { id, type: 'findOne', cached: false, result: null };
 
@@ -60,6 +87,7 @@ class Requester {
             const queryFromCache = this.fromCache(id);
 
             if (queryFromCache) {
+                client.close();
                 return resolve(queryFromCache);
             }
 
@@ -68,13 +96,15 @@ class Requester {
                 delete params.id;
             }
 
-            this.db.collection(collection).findOne(params, (error, results) => {
+            client.db(this.dbname).collection(collection).findOne(params, (error, results) => {
                 if (!!error) {
                     return reject(error);
                 }
 
                 query.result = results;
                 this.cache(query);
+
+                client.close();
 
                 return resolve(query);
             });
@@ -83,24 +113,27 @@ class Requester {
 
     /**
      * Play insert query
+     * @param {MongoClient} client
      * @param {string} collection
      * @param {Object} params
      * @param {Object} [options=null]
      *
      * @return {Promise}
      */
-    insert(collection, params, options = null) {
+    insert(client, collection, params, options = null) {
         const id = `${collection}.insert.${JSON.stringify(params)}.${JSON.stringify(options)}`;
         const query = { id, type: 'insert', cached: false, result: null };
 
         return new Promise((resolve, reject) => {
-            this.db.collection(collection).insertOne(params, options, (error, response) => {
+            client.db(this.dbname).collection(collection).insertOne(params, options, (error, response) => {
                 if (!!error) {
                     return reject(error);
                 }
 
                 query.result = this._parseResponse(response);
                 this.clearCache(collection);
+
+                client.close();
 
                 return resolve(query);
             });
@@ -109,24 +142,27 @@ class Requester {
 
     /**
      * Play insert many query
+     * @param {MongoClient} client
      * @param {string} collection
      * @param {Object} params
      * @param {Object} [options=null]
      *
      * @return {Promise}
      */
-    insertMany(collection, docs, options = null) {
+    insertMany(client, collection, docs, options = null) {
         const id = `${collection}.insert.${JSON.stringify(docs)}.${JSON.stringify(options)}`;
         const query = { id, type: 'insertMany', cached: false, result: null };
 
         return new Promise((resolve, reject) => {
-            this.db.collection(collection).insertMany(docs, options, (error, response) => {
+            client.db(this.dbname).collection(collection).insertMany(docs, options, (error, response) => {
                 if (!!error) {
                     return reject(error);
                 }
 
                 query.result = this._parseResponse(response);
                 this.clearCache(collection);
+
+                client.close();
 
                 return resolve(query);
             });
@@ -135,13 +171,14 @@ class Requester {
 
     /**
      * Play remove query
+     * @param {MongoClient} client
      * @param {string} collection
      * @param {Object} selector
      * @param {Object} [options=null]
      *
      * @return {Promise}
      */
-    remove(collection, selector, options = null) {
+    remove(client, collection, selector, options = null) {
         const id = `${collection}.remove.${JSON.stringify(selector)}.${JSON.stringify(options)}`;
         const query = { id, type: 'remove', cached: false, result: null };
 
@@ -151,13 +188,15 @@ class Requester {
                 delete selector.id;
             }
 
-            this.db.collection(collection).deleteOne(selector, options, (error, response) => {
+            client.db(this.dbname).collection(collection).deleteOne(selector, options, (error, response) => {
                 if (!!error) {
                     return reject(error);
                 }
 
                 query.result = this._parseResponse(response);
                 this.clearCache(collection);
+
+                client.close();
 
                 return resolve(query);
             });
@@ -166,13 +205,14 @@ class Requester {
 
     /**
      * Play remove many query
+     * @param {MongoClient} client
      * @param {string} collection
      * @param {Object} selector
      * @param {Object} [options=null]
      *
      * @return {Promise}
      */
-    removeMany(collection, selector, options = null) {
+    removeMany(client, collection, selector, options = null) {
         const id = `${collection}.remove.${JSON.stringify(selector)}.${JSON.stringify(options)}`;
         const query = { id, type: 'removeMany', cached: false, result: null };
 
@@ -182,13 +222,15 @@ class Requester {
                 delete selector.id;
             }
 
-            this.db.collection(collection).deleteMany(selector, options, (error, response) => {
+            client.db(this.dbname).collection(collection).deleteMany(selector, options, (error, response) => {
                 if (!!error) {
                     return reject(error);
                 }
 
                 query.result = this._parseResponse(response);
                 this.clearCache(collection);
+
+                client.close();
 
                 return resolve(query);
             });
@@ -197,6 +239,7 @@ class Requester {
 
     /**
      * Play update query
+     * @param {MongoClient} client
      * @param {string} collection
      * @param {Object} selector
      * @param {Object} params
@@ -204,7 +247,7 @@ class Requester {
      *
      * @return {Promise}
      */
-    update(collection, selector, params, options = null) {
+    update(client, collection, selector, params, options = null) {
         const id = `${collection}.update.${JSON.stringify(selector)}.${JSON.stringify(params)}.${JSON.stringify(options)}`;
         const query = { id, type: 'update', cached: false, result: null };
 
@@ -214,13 +257,15 @@ class Requester {
                 delete selector.id;
             }
 
-            this.db.collection(collection).updateOne(selector, params, options, (error, response) => {
+            client.db(this.dbname).collection(collection).updateOne(selector, params, options, (error, response) => {
                 if (!!error) {
                     return reject(error);
                 }
 
                 query.result = this._parseResponse(response);
                 this.clearCache(collection);
+
+                client.close();
 
                 return resolve(query);
             });
@@ -229,6 +274,7 @@ class Requester {
 
     /**
      * Play update query
+     * @param {MongoClient} client
      * @param {string} collection
      * @param {Object} selector
      * @param {Object} params
@@ -236,7 +282,7 @@ class Requester {
      *
      * @return {Promise}
      */
-    updateMany(collection, selector, params, options = null) {
+    updateMany(client, collection, selector, params, options = null) {
         const id = `${collection}.update.${JSON.stringify(selector)}.${JSON.stringify(params)}.${JSON.stringify(options)}`;
         const query = { id, type: 'updateMany', cached: false, result: null };
 
@@ -246,13 +292,15 @@ class Requester {
                 delete selector.id;
             }
 
-            this.db.collection(collection).updateMany(selector, params, options, (error, response) => {
+            client.db(this.dbname).collection(collection).updateMany(selector, params, options, (error, response) => {
                 if (!!error) {
                     return reject(error);
                 }
 
                 query.result = this._parseResponse(response);
                 this.clearCache(collection);
+
+                client.close();
 
                 return resolve(query);
             });
@@ -261,13 +309,14 @@ class Requester {
 
     /**
      * Play aggregate query
+     * @param {MongoClient} client
      * @param {string} collection
      * @param {Object} params
      * @param {Object} [options=null]
      *
      * @return {Promise}
      */
-    aggregate(collection, params, options = null) {
+    aggregate(client, collection, params, options = null) {
         const id = `${collection}.aggregate.${JSON.stringify(params)}.${JSON.stringify(options)}`;
         const query = { id, type: 'aggregate', cached: false, result: null };
 
@@ -275,29 +324,34 @@ class Requester {
             const queryFromCache = this.fromCache(id);
 
             if (queryFromCache) {
+                client.close();
                 return resolve(queryFromCache);
             }
 
-            // because mongodb driver have bug at lib/collection#2582
+            // because mongoclient driver have bug at lib/collection#2582
             if (null === options) {
-                this.db.collection(collection).aggregate(params, (error, results) => {
+                client.db(this.dbname).collection(collection).aggregate(params, (error, results) => {
                     if (!!error) {
                         return reject(error);
                     }
 
                     query.result = results;
                     this.cache(query);
+
+                    client.close();
 
                     return resolve(query);
                 });
             } else {
-                this.db.collection(collection).aggregate(params, options, (error, results) => {
+                client.db(this.dbname).collection(collection).aggregate(params, options, (error, results) => {
                     if (!!error) {
                         return reject(error);
                     }
 
                     query.result = results;
                     this.cache(query);
+
+                    client.close();
 
                     return resolve(query);
                 });
@@ -307,6 +361,7 @@ class Requester {
 
     /**
      * Play distinct query
+     * @param {MongoClient} client
      * @param {string} collection
      * @param {string} field
      * @param {Object} [params=null]
@@ -314,7 +369,7 @@ class Requester {
      *
      * @return {Promise}
      */
-    distinct(collection, field, params = {}, options = null) {
+    distinct(client, collection, field, params = {}, options = null) {
         const id = `${collection}.distinct.${field}.${JSON.stringify(params)}.${JSON.stringify(options)}`;
         const query = { id, type: 'distinct', cached: false, result: null };
 
@@ -322,16 +377,19 @@ class Requester {
             const queryFromCache = this.fromCache(id);
 
             if (queryFromCache) {
+                client.close();
                 return resolve(queryFromCache);
             }
 
-            this.db.collection(collection).distinct(field, params, options, (error, results) => {
+            client.db(this.dbname).collection(collection).distinct(field, params, options, (error, results) => {
                 if (!!error) {
                     return reject(error);
                 }
 
                 query.result = results;
                 this.cache(query);
+
+                client.close();
 
                 return resolve(query);
             });
@@ -340,13 +398,14 @@ class Requester {
 
     /**
      * Play count query
+     * @param {MongoClient} client
      * @param {string} collection
      * @param {Object} [params=null]
      * @param {Object} [options=null]
      *
      * @return {Promise}
      */
-    count(collection, params = {}, options = null) {
+    count(client, collection, params = {}, options = null) {
         const id = `${collection}.count.${JSON.stringify(params)}.${JSON.stringify(options)}`;
         const query = { id, type: 'count', cached: false, result: null };
 
@@ -354,16 +413,19 @@ class Requester {
             const queryFromCache = this.fromCache(id);
 
             if (queryFromCache) {
+                client.close();
                 return resolve(queryFromCache);
             }
 
-            this.db.collection(collection).countDocuments(params, options, (error, count) => {
+            client.db(this.dbname).collection(collection).countDocuments(params, options, (error, count) => {
                 if (!!error) {
                     return reject(error);
                 }
 
                 query.result = count;
                 this.cache(query);
+
+                client.close();
 
                 return resolve(query);
             });
@@ -388,27 +450,27 @@ class Requester {
         field
     }) {
         if (type === 'find') {
-            return this.find(collection, params, options, skip, limit, sort);
+            return this.connect().then(client => this.find(client, collection, params, options, skip, limit, sort));
         } else if (type === 'findOne') {
-            return this.findOne(collection, params, options);
+            return this.connect().then(client => this.findOne(client, collection, params, options));
         } else if (type === 'insert') {
-            return this.insert(collection, params, options);
+            return this.connect().then(client => this.insert(client, collection, params, options));
         } else if (type === 'insertMany') {
-            return this.insertMany(collection, params, options);
+            return this.connect().then(client => this.insertMany(client, collection, params, options));
         } else if (type === 'remove') {
-            return this.remove(collection, selector, options);
+            return this.connect().then(client => this.remove(client, collection, selector, options));
         } else if (type === 'removeMany') {
-            return this.removeMany(collection, selector, options);
+            return this.connect().then(client => this.removeMany(client, collection, selector, options));
         } else if (type === 'update') {
-            return this.update(collection, selector, params, options);
+            return this.connect().then(client => this.update(client, collection, selector, params, options));
         } else if (type === 'updateMany') {
-            return this.updateMany(collection, selector, params, options);
+            return this.connect().then(client => this.updateMany(client, collection, selector, params, options));
         } else if (type === 'aggregate') {
-            return this.aggregate(collection, params, options);
+            return this.connect().then(client => this.aggregate(client, collection, params, options));
         } else if (type === 'distinct') {
-            return this.distinct(collection, field, params, options);
+            return this.connect().then(client => this.distinct(client, collection, field, params, options));
         } else if (type === 'count') {
-            return this.count(collection, params, options);
+            return this.connect().then(client => this.count(client, collection, params, options));
         }
 
         return Promise.reject('Query type is undefined.');

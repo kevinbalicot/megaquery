@@ -1,6 +1,5 @@
-const WebSocketServer = require("ws").Server;
 const uuid = require('uuid');
-const MongoClient = require('mongodb').MongoClient;
+const WebSocketServer = require("ws").Server;
 const Validator = require('pxl-json-validator');
 
 const Requester = require('./requester');
@@ -49,15 +48,7 @@ class SocketServer extends WebSocketServer {
 
         this.storedQueries = [];
 
-        MongoClient.connect(uri, { useNewUrlParser: true }, (err, client) => {
-            if (!!err) {
-                throw new Error(err);
-            }
-
-            this.requester = new Requester(client.db(dbname), useCache);
-
-            this.emit('dbconnected', this.requester);
-        });
+        this.requester = new Requester(uri, useCache);
 
         this.on('connection', (client, req) => {
             client.id = uuid.v4();
