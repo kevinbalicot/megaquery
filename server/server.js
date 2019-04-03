@@ -48,7 +48,7 @@ class SocketServer extends WebSocketServer {
 
         this.storedQueries = [];
 
-        this.requester = new Requester(uri, useCache);
+        this.requester = new Requester(uri, dbname, useCache);
 
         this.on('connection', (client, req) => {
             client.id = uuid.v4();
