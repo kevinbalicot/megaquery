@@ -256,7 +256,9 @@ class SocketServer extends WebSocketServer {
      * @param {Client} client
      */
     sendQueryToClient(query, client) {
-        client.send(this.jsonToString(query));
+        if(client.readyState === client.OPEN) {
+            client.send(this.jsonToString(query));
+        }
     }
 
     /**
