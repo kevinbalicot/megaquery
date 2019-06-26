@@ -89,7 +89,7 @@ class Client extends EventEmitter {
     }
 
     storeMessage(message) {
-        let storedMessage = this.messages.find(m => m.data.id === message.data.id);
+        let storedMessage = this.messages.find(m => m.queryId === message.queryId);
 
         if (!storedMessage) {
             this.messages.push(message);
@@ -101,6 +101,7 @@ class Client extends EventEmitter {
      */
     synchronizeMessages() {
         this.messages.forEach(message => this.client.send(JSON.stringify(message)));
+        this.messages = [];
     }
 
     /**
@@ -145,15 +146,15 @@ class Repository {
         this.subscribers = [];
 
         this.client.subscribe(this.id, query => {
-            const subscriber = this.subscribers.find(s => (s.queryId && s.queryId === query.id) || (s.listen && s.listen === query.name));
+            const subscribers = this.subscribers.filter(s => (s.queryId && s.queryId === query.id) || (s.listen && s.listen === query.name));
 
-            if (!!subscriber) {
+            subscribers.forEach(subscriber => {
                 subscriber.callback(query);
 
                 if (subscriber.once) {
                     this.unsubscribe(subscriber.id);
                 }
-            }
+            });
         });
     }
 
