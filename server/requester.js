@@ -10,7 +10,7 @@ class Requester {
         this.uri = uri;
         this.dbname = dbname;
         this.useCache = useCache;
-        this.storedQueries = [];
+        this.storedQueries = new Map();
     }
 
     /**
@@ -62,7 +62,7 @@ class Requester {
                 }
 
                 query.result = results;
-                this.cache(query);
+                this.cache(id, query);
 
                 client.close();
 
@@ -102,7 +102,7 @@ class Requester {
                 }
 
                 query.result = results;
-                this.cache(query);
+                this.cache(id, query);
 
                 client.close();
 
@@ -336,7 +336,7 @@ class Requester {
                     }
 
                     query.result = results;
-                    this.cache(query);
+                    this.cache(id, query);
 
                     client.close();
 
@@ -349,7 +349,7 @@ class Requester {
                     }
 
                     query.result = results;
-                    this.cache(query);
+                    this.cache(id, query);
 
                     client.close();
 
@@ -387,7 +387,7 @@ class Requester {
                 }
 
                 query.result = results;
-                this.cache(query);
+                this.cache(id, query);
 
                 client.close();
 
@@ -423,7 +423,8 @@ class Requester {
                 }
 
                 query.result = count;
-                this.cache(query);
+
+                this.cache(id, query);
 
                 client.close();
 
@@ -478,20 +479,25 @@ class Requester {
 
     clearCache(collection = null) {
         if (null === collection) {
-            return this.storedQueries = [];
+            return this.storedQueries.clear();
         }
 
-        this.storedQueries = this.storedQueries.filter(q => q.collection !== collection);
+        Array.from(this.storedQueries.keys()).forEach(id => {
+            const idChunk = id.split('.');
+            if (idChunk[0] === collection) {
+                this.storedQueries.delete(id);
+            }
+        });
     }
 
     fromCache(id) {
-        return this.storedQueries.find(q => q.id === id);
+        return this.storedQueries.get(id);
     }
 
-    cache(query) {
+    cache(id, query) {
         if (this.useCache) {
             query.cached = true;
-            this.storedQueries.push(query);
+            this.storedQueries.set(id, query);
         }
     }
 
